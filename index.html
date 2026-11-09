@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lorenzo Caprari</title>
+<meta name="description" content="Lorenzo Caprari, software engineer in Reggio Emilia, Italy. Builder of nesso, offline semantic log search.">
+<style>
+:root{--bg:#101D30;--card:#16263D;--fg:#E6EDF5;--muted:#9FB0C4;--accent:#36D6C1}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:720px;margin:0 auto;padding:64px 24px}
+header{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.photo{width:112px;height:112px;border-radius:50%;object-fit:cover;border:3px solid var(--accent);background:var(--card)}
+h1{margin:0;font-size:2.2rem;line-height:1.2}
+.sub{margin:4px 0 0;color:var(--muted)}
+h2{margin:56px 0 16px;font-size:1rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.card{display:flex;gap:20px;background:var(--card);border-radius:14px;padding:24px;align-items:flex-start}
+.card img{width:64px;height:64px;border-radius:12px;flex:none}
+.card h3{margin:0 0 6px;font-size:1.25rem}
+.card p{margin:0 0 10px}
+code{background:#0B1524;padding:2px 6px;border-radius:6px;font-size:.9em}
+.tags{color:var(--muted);font-size:.9rem}
+ul.links{list-style:none;padding:0;display:flex;gap:24px;flex-wrap:wrap;margin:0}
+footer{margin-top:72px;color:var(--muted);font-size:.85rem}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <img class="photo" src="photo.jpg" alt="Photo of Lorenzo Caprari">
+  <div>
+    <h1>Lorenzo Caprari</h1>
+    <p class="sub">Software engineer in Reggio Emilia, Italy</p>
+  </div>
+</header>
+
+<h2>About</h2>
+<p>Hi, I'm Lorenzo. I'm a software engineer based in Reggio Emilia, in northern Italy. I like systems that are fast, honest about their limits, and tested properly: modern C++, Linux, and the tooling that keeps software reliable.</p>
+<p>In the evenings I build open-source tools. Away from the keyboard you'll find me [HOBBIES].</p>
+
+<h2>Projects</h2>
+<div class="card">
+  <img src="nesso-logo.jpg" alt="nesso logo">
+  <div>
+    <h3><a href="https://github.com/lorenzocaprari/nesso">nesso</a></h3>
+    <p><em>nesso</em> (NESS-oh) is Italian for "link, connection". It's a command-line tool for semantic log search: grep for meaning. Ask <code>why did the service crash</code> and it finds the log lines that explain it, even when the words differ.</p>
+    <p>It runs fully offline on Linux, with no cloud and no GPU, so your logs never leave your machine. It's written in modern C++, with sanitizers, fuzzing, behaviour tests and benchmarks in CI.</p>
+    <p class="tags">C++26 · Linux · Apache-2.0</p>
+  </div>
+</div>
+
+<h2>Elsewhere</h2>
+<ul class="links">
+  <li><a href="https://github.com/lorenzocaprari">GitHub</a></li>
+  <li><a href="[LINKEDIN_URL]">LinkedIn</a></li>
+  <li><a href="mailto:[EMAIL]">Email</a></li>
+</ul>
+
+<footer>© 2026 Lorenzo Caprari</footer>
+</main>
+</body>
+</html>
