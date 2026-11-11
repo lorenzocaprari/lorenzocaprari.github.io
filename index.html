@@ -32,24 +32,31 @@ footer{margin-top:72px;color:var(--muted);font-size:.85rem}
   <img class="photo" src="photo.jpg" alt="Photo of Lorenzo Caprari">
   <div>
     <h1>Lorenzo Caprari</h1>
-    <p class="sub">Software engineer in Reggio Emilia, Italy</p>
+    <p class="sub">Embedded software engineer · Reggio Emilia, Italy</p>
   </div>
 </header>
 
 <h2>About</h2>
-<p>Hi, I'm Lorenzo. I'm a software engineer based in Reggio Emilia, in northern Italy. I like systems that are fast, honest about their limits, and tested properly: modern C++, Linux, and the tooling that keeps software reliable.</p>
-<p>In the evenings I build open-source tools. Away from the keyboard you'll find me outdoors: running, hiking, cycling, or walking my dog. Evenings off usually mean the cinema.</p>
+<p>I'm an embedded software engineer. For about five years I've worked on software that runs on vehicles: over-the-air updates for car ECUs (two of those years in Ireland), then the vehicle control system and build tooling of an autonomous driving stack, and now the onboard software of automated guided vehicles.</p>
+<p>Most of my work is modern C++ on Linux and QNX. The part I enjoy most is what makes code trustworthy: build systems, cross-compilation, static analysis, BDD and unit tests, CI. I go to Italian C++ Community events whenever I can.</p>
+<p>Outside work I build nesso, an open-source log search tool. Away from the keyboard I'm usually running, hiking, cycling or out with my dog, and I go to the cinema more than I probably should.</p>
 
 <h2>Projects</h2>
 <div class="card">
   <img src="nesso-logo.svg" alt="nesso logo">
   <div>
     <h3><a href="https://github.com/lorenzocaprari/nesso">nesso</a></h3>
-    <p><em>nesso</em> (NESS-oh) is Italian for "link, connection". It's a command-line tool for semantic log search: grep for meaning. Ask <code>why did the service crash</code> and it finds the log lines that explain it, even when the words differ.</p>
-    <p>It runs fully offline on Linux, with no cloud and no GPU, so your logs never leave your machine. It's written in modern C++, with sanitizers, fuzzing, behaviour tests and benchmarks in CI.</p>
+    <p>A command-line tool that searches logs by meaning instead of exact words. Ask <code>why did the service crash</code> and it finds the relevant lines even if none of them say "crash". It runs offline on Linux, no cloud or GPU needed.</p>
+    <p>The name is Italian for "link" or "connection".</p>
     <p class="tags">C++26 · Linux · Apache-2.0</p>
   </div>
 </div>
+
+<h2>Education</h2>
+<p><strong>MSc, Electronics Engineering</strong>, University of Modena and Reggio Emilia, 2021, 110/110<br>
+<span class="tags">Thesis: <em>Development of a CAD application for the configuration of proximity laser scanners on AGVs</em></span></p>
+<p><strong>BSc, Electronics and Telecommunications Engineering</strong>, University of Bologna, 2019, 110/110 with honours<br>
+<span class="tags">Thesis: <em>Programming and verification of a transmitter node for ultrasonic communications</em></span></p>
 
 <h2>Elsewhere</h2>
 <ul class="links">
