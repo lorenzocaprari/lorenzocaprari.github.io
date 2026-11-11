@@ -4,23 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lorenzo Caprari</title>
-<meta name="description" content="Lorenzo Caprari, software engineer in Reggio Emilia, Italy. Builder of nesso, offline semantic log search.">
+<meta name="description" content="Lorenzo Caprari, embedded software engineer in Reggio Emilia, Italy. Builder of nesso, offline semantic log search.">
 <style>
-:root{--bg:#101D30;--card:#16263D;--fg:#E6EDF5;--muted:#9FB0C4;--accent:#36D6C1}
+@font-face{font-family:"IBM Plex Sans";src:url("fonts/ibm-plex-sans.woff2") format("woff2");font-weight:100 700;font-style:normal;font-display:swap}
+@font-face{font-family:"IBM Plex Serif";src:url("fonts/ibm-plex-serif-medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"IBM Plex Mono";src:url("fonts/ibm-plex-mono.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+:root{--bg:#F4F2EE;--card:#FFFFFF;--fg:#101D30;--muted:#5C6A78;--accent:#0D6E65;--line:#DDD8D0;--code:#EDE9E3;--photo-ring:rgba(16,29,48,.16)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-main{max-width:720px;margin:0 auto;padding:64px 24px}
-header{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
-.photo{width:112px;height:112px;border-radius:50%;object-fit:cover;border:3px solid var(--accent);background:var(--card)}
-h1{margin:0;font-size:2.2rem;line-height:1.2}
-.sub{margin:4px 0 0;color:var(--muted)}
-h2{margin:56px 0 16px;font-size:1rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.65 "IBM Plex Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:720px;margin:0 auto;padding:72px 28px 56px}
+header{display:flex;gap:28px;align-items:center;flex-wrap:wrap}
+.photo{width:112px;height:112px;border-radius:50%;object-fit:cover;border:1px solid var(--photo-ring);background:var(--card)}
+h1{margin:0;font-family:"IBM Plex Serif","IBM Plex Sans",Georgia,serif;font-weight:500;font-size:2.15rem;line-height:1.2;letter-spacing:-0.02em;color:var(--fg)}
+.sub{margin:6px 0 0;color:var(--muted)}
+h2{margin:56px 0 18px;font-size:.75rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:8px}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
-.card{display:flex;gap:20px;background:var(--card);border-radius:14px;padding:24px;align-items:flex-start}
-.card img{width:64px;height:64px;border-radius:12px;flex:none}
-.card h3{margin:0 0 6px;font-size:1.25rem}
+.card{display:flex;gap:22px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:24px;align-items:flex-start}
+.card img{width:108px;height:auto;border-radius:0;flex:none;margin-top:6px}
+.card h3{margin:0 0 6px;font-size:1.2rem;font-weight:600}
 .card p{margin:0 0 10px}
-code{background:#0B1524;padding:2px 6px;border-radius:6px;font-size:.9em}
+code{background:var(--code);padding:2px 6px;border-radius:3px;font-size:.88em;font-family:"IBM Plex Mono",ui-monospace,monospace}
 .tags{color:var(--muted);font-size:.9rem}
 ul.links{list-style:none;padding:0;display:flex;gap:24px;flex-wrap:wrap;margin:0}
 footer{margin-top:72px;color:var(--muted);font-size:.85rem}
