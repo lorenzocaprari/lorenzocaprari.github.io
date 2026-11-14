@@ -74,7 +74,7 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 
 <p>A bug that a test would have caught in seconds shows up on a customer's site weeks later. Someone connects remotely, or travels, to reproduce a failure that only happens on that machine, with that data, under that load. A slowdown nobody profiled becomes "it feels sluggish since the last update", and no one can say which change caused it. The fix ships in a hurry, without checks, and plants the next problem.</p>
 
-<p>That's how good engineers end up in permanent firefighting. Not because they're careless, but because every problem is found where it costs the most, and nothing stops it from coming back. Real-world validation matters enormously. It should confirm that the product works, not be where you find out it doesn't.</p>
+<p>That's how good engineers end up in permanent firefighting. Not because they're careless, but because every problem is found where it costs the most, and nothing stops it from coming back. Real-world validation should confirm that the product works, not be where you find out it doesn't.</p>
 
 <h2>CI is guardrails, not a gate</h2>
 
@@ -82,11 +82,11 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 
 <p>Guardrails on a mountain road don't slow you down. They're why you can drive at a decent speed without staring at the edge, instead of zigzagging and correcting all the way down. You stop worrying about falling off and think about where you're going.</p>
 
-<p>Good CI does the same. A sanitizer means you don't have to inspect every pointer. A fuzzer means you don't have to imagine every malformed input. A repeatable benchmark, tracking instructions or allocations rather than noisy wall-clock time on a shared runner, means you don't have to remember how fast it used to be. The checks hold the edges, and your attention goes back to the real problem.</p>
+<p>Good CI does the same. A sanitizer means you don't have to inspect every pointer. A fuzzer means you don't have to imagine every malformed input. A repeatable benchmark means you don't have to remember how fast it used to be. The checks hold the edges, and your attention goes back to the real problem.</p>
 
 <p>That only holds when the checks are fast and deterministic. A forty-minute pipeline with flaky tests isn't a guardrail. It's a tollbooth people learn to drive around. So the pull-request checks stay quick, with a short, bounded fuzz run, and the slow, deep work runs at night.</p>
 
-<p>This is how CI scales experience. It doesn't replace the experienced engineer. It takes what they know ("this will overflow", "this isn't thread-safe", "this got slower") and turns it into something that runs on every change, for everyone, including the changes they'll never see.</p>
+<p>This is how CI scales experience: it turns what experienced people know into checks that run on every change, including the ones they'll never see.</p>
 
 <h2>Schrödinger's code</h2>
 
@@ -135,11 +135,11 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
 }
 </code></pre>
 
-<p>Two checks work together here. AddressSanitizer stops the run if the parser itself reads memory it shouldn't. The bounds check catches the quieter bug: a parser that returns a view pointing outside its input, which nobody touches until some caller far away does. Together they test one belief about the parser against millions of inputs I'd never think of. Once it runs in CI, nobody has to remember the rule. The guardrail goes up with the road, because a road built without guardrails almost never gets them later.</p>
+<p>AddressSanitizer catches the parser reading memory it shouldn't. The bounds check catches the quieter bug: returning a view outside its input, before any caller touches it. Once it runs in CI, nobody has to keep the rule in their head, and the guardrail goes up with the road.</p>
 
 <h2>AI makes the gap wider</h2>
 
-<p>AI coding assistants changed the speed. Someone can now produce in an afternoon what used to take a week, and it usually looks fine. But the people who understand the system haven't become faster at reviewing. The gap between how much code gets written and how much is actually understood is growing, and that gap is exactly where Schrödinger's code lives.</p>
+<p>AI coding assistants changed the speed. Someone can now produce in an afternoon what used to take a week. But the people who understand the system haven't become faster at reviewing. The gap between how much code gets written and how much is actually understood is growing, and that gap is exactly where Schrödinger's code lives.</p>
 
 <p>Without guardrails, more speed just means more swerving. With them, speed actually takes you somewhere.</p>
 
