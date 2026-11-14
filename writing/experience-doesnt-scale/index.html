@@ -145,7 +145,7 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
 
 <h2>I'm the person this is about</h2>
 
-<p>I work on <a href="https://github.com/lorenzocaprari/nesso">nesso</a>, a small open-source tool, mostly on my own and with help from AI agents. Its CI runs sanitizers, fuzzing, behaviour tests and benchmarks on every change. For a one-person project, that can look excessive.</p>
+<p>I work on <a href="https://github.com/lorenzocaprari/nesso">nesso</a>, a small open-source tool, mostly on my own and with help from AI agents. Its <a href="https://github.com/lorenzocaprari/nesso/tree/main/.github/workflows">CI</a> runs static analysis, sanitizers, fuzzing, behaviour tests and benchmarks on every pull request, and the whole run usually finishes in ten to fifteen minutes. For a one-person project, that can look excessive.</p>
 
 <p>It isn't, because I'm exactly the person this article describes. I have experience, and I know it won't catch everything. A fuzzer running under AddressSanitizer found an out-of-bounds offset in nesso's parser that I'd never have spotted by reading the code. I didn't need to be smarter. I needed a guardrail.</p>
 
