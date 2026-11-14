@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Experience doesn't scale. CI does. — Lorenzo Caprari</title>
+<meta name="description" content="Experience is local, tired and silent. CI turns what an experienced engineer knows into something that runs on every change, for everyone.">
+<meta property="og:title" content="Experience doesn't scale. CI does.">
+<meta property="og:description" content="Experience is local, tired and silent. CI turns what an experienced engineer knows into something that runs on every change, for everyone.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://lorenzocaprari.github.io/writing/experience-doesnt-scale/">
+<style>
+@font-face{font-family:"IBM Plex Sans";src:url("../../fonts/ibm-plex-sans.woff2") format("woff2");font-weight:100 700;font-style:normal;font-display:swap}
+@font-face{font-family:"IBM Plex Serif";src:url("../../fonts/ibm-plex-serif-medium.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"IBM Plex Mono";src:url("../../fonts/ibm-plex-mono.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+:root{--bg:#F4F2EE;--card:#FFFFFF;--fg:#101D30;--muted:#5C6A78;--accent:#0D6E65;--line:#DDD8D0;--code:#EDE9E3}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.65 "IBM Plex Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:calc(68ch + 56px);margin:0 auto;padding:48px 28px 56px}
+.home{margin:0 0 40px;font-size:.95rem}
+.home a{color:var(--muted);text-decoration:none}
+.home a:hover{color:var(--accent);text-decoration:underline}
+h1{margin:0;font-family:"IBM Plex Serif","IBM Plex Sans",Georgia,serif;font-weight:500;font-size:2.15rem;line-height:1.2;letter-spacing:-0.02em;color:var(--fg)}
+.meta{margin:12px 0 0;color:var(--muted);font-size:.95rem}
+article h2{margin:2.35em 0 .7em;font-family:"IBM Plex Serif","IBM Plex Sans",Georgia,serif;font-weight:500;font-size:1.35rem;line-height:1.3;letter-spacing:-0.01em;color:var(--fg)}
+article p{margin:.9em 0}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+code{background:var(--code);padding:2px 6px;border-radius:3px;font-size:.88em;font-family:"IBM Plex Mono",ui-monospace,"JetBrains Mono",monospace}
+pre{background:var(--code);border:1px solid var(--line);border-radius:6px;padding:16px 18px;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;margin:1.25em 0;tab-size:4}
+pre code{background:none;padding:0;border-radius:0;font-size:.82rem;line-height:1.5;font-family:"IBM Plex Mono",ui-monospace,"JetBrains Mono",monospace}
+.back{margin:48px 0 0}
+footer{margin-top:56px;color:var(--muted);font-size:.85rem}
+@media (max-width:600px){
+  main{padding:32px 20px 48px}
+  h1{font-size:1.7rem}
+  article h2{font-size:1.22rem}
+  pre{padding:14px 14px}
+  pre code{font-size:.78rem}
+}
+</style>
+</head>
+<body>
+<main>
+<p class="home"><a href="../../">Lorenzo Caprari</a></p>
+<article>
+<h1>Experience doesn't scale. CI does.</h1>
+<p class="meta">Lorenzo Caprari · 14 November 2026</p>
+
+<p>Every team has someone who just knows. They glance at a change and say "that'll break the release build", and they're right. They remember why that timeout is 300 milliseconds, which module nobody touches on a Friday, and which warning is harmless. In a young codebase, this person <em>is</em> the quality process.</p>
+
+<p>And it works. That's the trap.</p>
+
+<h2>Experience lives in one head</h2>
+
+<p>Experience is pattern recognition built over years of watching things break. Nothing replaces it. But however good the person is, it has three limits.</p>
+
+<p>It's <strong>local</strong>. It only acts on the changes that person happens to see. As the code and the team grow, that share keeps shrinking, while everyone still behaves as if they saw everything.</p>
+
+<p>It's <strong>tired</strong>. Judgement is sharp at ten in the morning on a small diff and much less sharp at seven in the evening on a large one.</p>
+
+<p>It's <strong>silent</strong>. Most of what an experienced engineer knows isn't written down anywhere. It leaves when they change teams, and nobody who joined last month can check against it.</p>
+
+<p>So experience grows with the number of experienced people, while risk grows with the amount of code. Those two lines cross sooner than anyone expects. After that, the team is still moving, but it's moving on hope.</p>
+
+<h2>Regressions breed regressions</h2>
+
+<p>Picture development without automated checks. You change something, something else breaks, and you fix it. The fix breaks a third thing, so you fix that too. Each correction makes sense on its own, but together they add up to motion without progress. Most of the effort goes into undoing yesterday's side effects.</p>
+
+<p>That's what a large codebase without CI feels like. Everyone is busy and the code gets bigger, but the product barely improves.</p>
+
+<h2>The bill arrives in the field</h2>
+
+<p>Skipping tests, CI and profiling doesn't remove that work. It moves it to the most expensive place there is: the field.</p>
+
+<p>A bug that a test would have caught in seconds shows up on a customer's site weeks later. Someone connects remotely, or travels, to reproduce a failure that only happens on that machine, with that data, under that load. A slowdown nobody profiled becomes "it feels sluggish since the last update", and no one can say which change caused it. The fix ships in a hurry, without checks, and plants the next problem.</p>
+
+<p>That's how good engineers end up in permanent firefighting. Not because they're careless, but because every problem is found where it costs the most, and nothing stops it from coming back. Real-world validation matters enormously. It should confirm that the product works, not be where you find out it doesn't.</p>
+
+<h2>CI is guardrails, not a gate</h2>
+
+<p>People often describe CI as a gate, something that stops you. Guardrails is a better picture.</p>
+
+<p>Guardrails on a mountain road don't slow you down. They're why you can drive at a decent speed without staring at the edge, instead of zigzagging and correcting all the way down. You stop worrying about falling off and think about where you're going.</p>
+
+<p>Good CI does the same. A sanitizer means you don't have to inspect every pointer. A fuzzer means you don't have to imagine every malformed input. A repeatable benchmark, tracking instructions or allocations rather than noisy wall-clock time on a shared runner, means you don't have to remember how fast it used to be. The checks hold the edges, and your attention goes back to the real problem.</p>
+
+<p>That only holds when the checks are fast and deterministic. A forty-minute pipeline with flaky tests isn't a guardrail. It's a tollbooth people learn to drive around. So the pull-request checks stay quick, with a short, bounded fuzz run, and the slow, deep work runs at night.</p>
+
+<p>This is how CI scales experience. It doesn't replace the experienced engineer. It takes what they know ("this will overflow", "this isn't thread-safe", "this got slower") and turns it into something that runs on every change, for everyone, including the changes they'll never see.</p>
+
+<h2>Schrödinger code</h2>
+
+<p>The usual plan is to write the feature now and add the tests "when things calm down". Things never calm down.</p>
+
+<p>So the code ships in a strange state. I call it Schrödinger code: until something actually checks it, it's both working and broken. It might do exactly what you meant. It might also fail now and then, on some input, under some load or with some timing nobody tried. You don't know which, and neither does anyone else. The box only gets opened in production, usually at the worst possible moment.</p>
+
+<p>Writing code isn't the same as knowing it works. Tests can't prove there are no bugs, as Dijkstra pointed out long ago. What they do is narrow the space where bugs can hide, and keep it narrow. That evidence isn't only for today's reviewer. It's for you in six months, when you've forgotten every detail and need to change this code safely, and for the colleague who inherits it. Without it, they aren't changing your code, they're guessing.</p>
+
+<p>So the check is part of the feature, not a chore for later. Say I add a small parser for <code>key=value</code> lines:</p>
+
+<pre><code>// parse.hpp
+#include &lt;optional&gt;
+#include &lt;string_view&gt;
+
+struct Field { std::string_view key, value; };
+
+std::optional&lt;Field&gt; parse_field(std::string_view line);
+</code></pre>
+
+<p>In the same change, it gets a fuzz target:</p>
+
+<pre><code>// fuzz_parse.cpp: built with AddressSanitizer, runs on every pull request
+#include "parse.hpp"
+#include &lt;cstddef&gt;
+#include &lt;cstdint&gt;
+#include &lt;functional&gt;
+
+extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size) {
+    std::string_view input(reinterpret_cast&lt;const char*&gt;(data), size);
+    if (auto f = parse_field(input)) {
+        // Whatever the input, both views must point inside it.
+        auto in_bounds = [input](std::string_view sv) {
+            if (sv.empty()) return true;
+            std::less_equal&lt;const char*&gt; le;
+            return le(input.data(), sv.data()) &amp;&amp;
+                   le(sv.data() + sv.size(), input.data() + input.size());
+        };
+        if (!in_bounds(f-&gt;key) || !in_bounds(f-&gt;value))
+            __builtin_trap();
+    }
+    return 0;
+}
+</code></pre>
+
+<p>Two checks work together here. AddressSanitizer stops the run if the parser itself reads memory it shouldn't. The bounds check catches the quieter bug: a parser that returns a view pointing outside its input, which nobody touches until some caller far away does. Together they test one belief about the parser against millions of inputs I'd never think of. Once it runs in CI, nobody has to remember the rule. The guardrail goes up with the road, because a road built without guardrails almost never gets them later.</p>
+
+<h2>AI makes the gap wider</h2>
+
+<p>AI coding assistants changed the speed. Someone can now produce in an afternoon what used to take a week, and it usually looks fine. But the people who understand the system haven't become faster at reviewing. The gap between how much code gets written and how much is actually understood is growing, and that gap is exactly where Schrödinger code lives.</p>
+
+<p>Without guardrails, more speed just means more swerving. With them, speed actually takes you somewhere.</p>
+
+<h2>I'm the person this is about</h2>
+
+<p>I work on <a href="https://github.com/lorenzocaprari/nesso">nesso</a>, a small open-source tool, mostly on my own and with help from AI agents. Its CI runs sanitizers, fuzzing, behaviour tests and benchmarks on every change. For a one-person project, that can look excessive.</p>
+
+<p>It isn't, because I'm exactly the person this article describes. I have experience, and I know it won't catch everything. A fuzzer running under AddressSanitizer found an out-of-bounds offset in nesso's parser that I'd never have spotted by reading the code. I didn't need to be smarter. I needed a guardrail.</p>
+
+<h2>Start with one rail</h2>
+
+<p>Pick the mistake your team keeps making, and turn it into a fast check on every pull request. Then write each new piece of code together with its check.</p>
+
+<p>Every check is a piece of someone's experience that no longer needs them in the room. That's what scaling looks like.</p>
+</article>
+<p class="back"><a href="../">All writing</a></p>
+<footer>© 2026 Lorenzo Caprari</footer>
+</main>
+</body>
+</html>
