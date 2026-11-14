@@ -88,11 +88,11 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 
 <p>This is how CI scales experience: it turns what experienced people know into checks that run on every change, including the ones they'll never see.</p>
 
-<h2>Schrödinger's code</h2>
+<h2>Schrödinger code</h2>
 
 <p>The usual plan is to write the feature now and add the tests "when things calm down". Things never calm down.</p>
 
-<p>So the code ships in a strange state. That's Schrödinger's code: until something actually checks it, it's both working and broken. It might do exactly what you meant. It might also fail now and then, on some input, under some load or with some timing nobody tried. You don't know which, and neither does anyone else. The box only gets opened in production, usually at the worst possible moment.</p>
+<p>So the code ships in a strange state. I call this Schrödinger code: until something actually checks it, it's both working and broken. It might do exactly what you meant. It might also fail now and then, on some input, under some load or with some timing nobody tried. You don't know which, and neither does anyone else. The box only gets opened in production, usually at the worst possible moment.</p>
 
 <p>Writing code isn't the same as knowing it works. Tests can't prove there are no bugs, as Dijkstra pointed out long ago. What they do is narrow the space where bugs can hide, and keep it narrow. That evidence isn't only for today's reviewer. It's for you in six months, when you've forgotten every detail and need to change this code safely, and for the colleague who inherits it. Without it, they aren't changing your code, they're guessing.</p>
 
@@ -139,7 +139,7 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
 
 <h2>AI makes the gap wider</h2>
 
-<p>AI coding assistants changed the speed. Someone can now produce in an afternoon what used to take a week. But the people who understand the system haven't become faster at reviewing. The gap between how much code gets written and how much is actually understood is growing, and that gap is exactly where Schrödinger's code lives.</p>
+<p>AI coding assistants changed the speed. Someone can now produce in an afternoon what used to take a week. But the people who understand the system haven't become faster at reviewing. The gap between how much code gets written and how much is actually understood is growing, and that gap is exactly where Schrödinger code lives.</p>
 
 <p>Without guardrails, more speed just means more swerving. With them, speed actually takes you somewhere.</p>
 
