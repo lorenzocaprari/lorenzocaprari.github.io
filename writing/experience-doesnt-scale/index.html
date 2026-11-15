@@ -51,11 +51,11 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 
 <p>Every team has someone who just knows. They glance at a change and say "that'll break the release build", and they're right. They remember why that timeout is 300 milliseconds, which module nobody touches on a Friday, and which warning is harmless. In a young codebase, this person <em>is</em> the quality process.</p>
 
-<p>And it works. That's the trap.</p>
+<p>And it works, until it quietly doesn't.</p>
 
 <h2>Experience lives in one head</h2>
 
-<p>Experience is pattern recognition built over years of watching things break. Nothing replaces it. But however good the person is, it has three limits.</p>
+<p>Experience is pattern recognition built over years of watching things break. Nothing replaces it. But however good the person is, it has limits.</p>
 
 <p>It's <strong>local</strong>. It only acts on the changes that person happens to see. As the code and the team grow, that share keeps shrinking, while everyone still behaves as if they saw everything.</p>
 
@@ -75,9 +75,11 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 
 <p>Skipping tests, CI and profiling doesn't remove that work. It moves it to the most expensive place there is: the field.</p>
 
+<p>I've seen this pattern more than once. The product mostly does its job, everything keeps changing, proofs of concept turn into features, and the direction shifts every few months. In that mode, "good enough" really is good enough to keep going. Until it isn't. Then the shortcuts you took to move fast are the same ones that slow everything down, and the frustrating part is knowing it could have been avoided.</p>
+
 <p>A bug that a test would have caught in seconds shows up on a customer's site weeks later. Someone connects remotely, or travels, to reproduce a failure that only happens on that machine, with that data, under that load. A slowdown nobody profiled becomes "it feels sluggish since the last update", and no one can say which change caused it. The fix ships in a hurry, without checks, and plants the next problem.</p>
 
-<p>That's how good engineers end up in permanent firefighting. Not because they're careless, but because every problem is found where it costs the most, and nothing stops it from coming back. Real-world validation should confirm that the product works, not be where you find out it doesn't.</p>
+<p>That's how good engineers end up in permanent firefighting. They aren't careless; every problem is simply found where it costs the most, and nothing stops it from coming back. Real-world validation should confirm that the product works, not be where you find out it doesn't.</p>
 
 <h2>CI is guardrails, not a gate</h2>
 
@@ -87,7 +89,7 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 
 <p>Good CI does the same. A sanitizer means you don't have to inspect every pointer. A fuzzer means you don't have to imagine every malformed input. A repeatable benchmark means you don't have to remember how fast it used to be. The checks hold the edges, and your attention goes back to the real problem.</p>
 
-<p>That only holds when the checks are fast and deterministic. A forty-minute pipeline with flaky tests isn't a guardrail. It's a tollbooth people learn to drive around. So the pull-request checks stay quick, with a short, bounded fuzz run, and the slow, deep work runs at night.</p>
+<p>That only holds when the checks are fast and deterministic. A forty-minute pipeline with flaky tests turns into a tollbooth that people learn to drive around. So the pull-request checks stay quick, with a short, bounded fuzz run, and the slow, deep work runs at night.</p>
 
 <p>This is how CI scales experience: it turns what experienced people know into checks that run on every change, including the ones they'll never see.</p>
 <p>Guardrails don't choose the route, though. CI won't design the system for you, and it doesn't replace a good review. What it does is keep the decisions you've already made true while everything else changes.</p>
@@ -98,7 +100,7 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 
 <p>So the code ships in a strange state. I call this Schrödinger code: until something actually checks it, it's both working and broken. It might do exactly what you meant. It might also fail now and then, on some input, under some load or with some timing nobody tried. You don't know which, and neither does anyone else. The box only gets opened in production, usually at the worst possible moment.</p>
 
-<p>Writing code isn't the same as knowing it works. Tests can't prove there are no bugs, as Dijkstra pointed out long ago. What they do is narrow the space where bugs can hide, and keep it narrow. That evidence isn't only for today's reviewer. It's for you in six months, when you've forgotten every detail and need to change this code safely, and for the colleague who inherits it. Without it, they aren't changing your code, they're guessing.</p>
+<p>Code that compiles is not yet code you know works. Tests can't prove there are no bugs, as Dijkstra pointed out long ago. What they do is narrow the space where bugs can hide, and keep it narrow. That evidence isn't only for today's reviewer. It's for you in six months, when you've forgotten every detail and need to change this code safely, and for the colleague who inherits it. Without it, they aren't changing your code, they're guessing.</p>
 
 <p>So the check is part of the feature, not a chore for later. Say I add a small parser for <code>key=value</code> lines:</p>
 
@@ -151,13 +153,13 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* data, std::size_t size
 
 <p>I work on <a href="https://github.com/lorenzocaprari/nesso">nesso</a>, a small open-source tool, mostly on my own and with help from AI agents. Its <a href="https://github.com/lorenzocaprari/nesso/tree/main/.github/workflows">CI</a> runs static analysis, sanitizers, fuzzing, behaviour tests and benchmarks on every pull request, and the whole run usually finishes in ten to fifteen minutes. For a one-person project, that can look excessive.</p>
 
-<p>It isn't, because I'm exactly the person this article describes. I have experience, and I know it won't catch everything. A fuzzer running under AddressSanitizer found an out-of-bounds offset in nesso's parser that I'd never have spotted by reading the code. I didn't need to be smarter. I needed a guardrail.</p>
+<p>I don't think it is. I'm exactly the person this article describes. I have experience, and I know it won't catch everything. A fuzzer running under AddressSanitizer found an out-of-bounds offset in nesso's parser that I'd never have spotted by reading the code. I didn't need to be smarter. I needed a guardrail.</p>
 
 <h2>Start with one rail</h2>
 
 <p>Pick the mistake your team keeps making, and turn it into a fast check on every pull request. Then write each new piece of code together with its check.</p>
 
-<p>Every check is a piece of someone's experience that no longer needs them in the room. That's what scaling looks like.</p>
+<p>Every check is a piece of someone's experience that no longer needs them in the room.</p>
 </article>
 <p class="back"><a href="../">All writing</a></p>
 <footer>© 2026 Lorenzo Caprari</footer>
