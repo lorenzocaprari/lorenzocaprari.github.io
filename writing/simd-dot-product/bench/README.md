@@ -47,3 +47,28 @@ v2023.02.15. The ONNX Runtime 1.18.1 source archive that v0.3.0's dependencies
 need has been missing upstream since November 2026; nesso's
 [building notes](https://github.com/lorenzocaprari/nesso/blob/main/docs/building.md)
 describe the Conan backup-source setting that fetches a byte-identical copy.
+
+## Whole searches with the release binary
+
+`search/measure.py` times whole `nesso search` runs of the official 0.3.0
+package with `NESSO_TRACE=1`: three warm-up and ten timed runs per kernel,
+alternating, one thread, pinned to logical CPU 2. `search/results.json` holds
+every run behind the article's stage table.
+
+```
+gh release download v0.3.0 -R lorenzocaprari/nesso -p 'nesso_0.3.0_amd64.deb'
+dpkg-deb -x nesso_0.3.0_amd64.deb deb
+deb/usr/bin/nesso index --quiet -o hdfs-1m.nesso HDFS_1m.log --model-dir deb/usr/share/nesso
+deb/usr/bin/nesso index --quiet -o bgl-100k.nesso BGL_100k.log --model-dir deb/usr/share/nesso
+cp search/measure.py . && python3 measure.py
+```
+
+`HDFS_1m.log` and `BGL_100k.log` are the first 1,000,000 and 100,000 lines of
+HDFS and BGL from [Loghub 2.0](https://doi.org/10.5281/zenodo.8275861).
+
+## Clock check
+
+`clock/clk.c` times a chain of 10^9 dependent integer `add`s, one cycle each on
+Zen 5, and prints the effective clock in GHz. WSL2 exposes no clock or core-type
+information, so this is how the article's 4.9 GHz figure was measured:
+`gcc -O2 -o clk clock/clk.c && taskset -c 2 ./clk`.

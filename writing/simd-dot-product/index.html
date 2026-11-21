@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fifteen times faster. Five microseconds saved. — Lorenzo Caprari</title>
+<title>What SIMD buys a 384-float dot product — Lorenzo Caprari</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="description" content="A hand-written AVX2 kernel made nesso&#x27;s 384-float dot product fifteen times faster and saved five microseconds per search. Why, what portable SIMD and GCC 16&#x27;s C++26 &lt;simd&gt; do instead, and when the compiler knows better.">
-<meta property="og:title" content="Fifteen times faster. Five microseconds saved.">
-<meta property="og:description" content="A hand-written AVX2 kernel made nesso&#x27;s 384-float dot product fifteen times faster and saved five microseconds per search. Why, what portable SIMD and GCC 16&#x27;s C++26 &lt;simd&gt; do instead, and when the compiler knows better.">
+<meta name="description" content="Where a fifteen-times faster dot product comes from, whether EVE, std::simd and GCC 16&#x27;s C++26 &lt;simd&gt; can replace the intrinsics, why GCC won&#x27;t fuse one loop, and what it all buys a whole search.">
+<meta property="og:title" content="What SIMD buys a 384-float dot product">
+<meta property="og:description" content="Where a fifteen-times faster dot product comes from, whether EVE, std::simd and GCC 16&#x27;s C++26 &lt;simd&gt; can replace the intrinsics, why GCC won&#x27;t fuse one loop, and what it all buys a whole search.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://lorenzocaprari.github.io/writing/simd-dot-product/">
 <style>
@@ -57,15 +57,15 @@ img.fig{display:block;width:100%;height:auto;margin:1.5em 0}
 <main>
 <p class="home"><a href="../../">Lorenzo Caprari</a></p>
 <article>
-<h1>Fifteen times faster. Five microseconds saved.</h1>
+<h1>What SIMD buys a 384-float dot product</h1>
 <p class="meta">Lorenzo Caprari · 21 November 2026</p>
 <p>nesso, the log search tool I work on, turns every log line into a vector of 384 floats and ranks lines by how close their vectors are to the query's. Underneath that ranking sits one small function: the dot product of two arrays of 384 floats.</p>
-<p>I made that function fifteen times faster with a hand-written AVX2 kernel. On a real search it saved about five microseconds out of almost a second.</p>
-<p>Both numbers are true, and the gap between them is what this article is about. Along the way I found three things I didn't expect:</p>
+<p>A hand-written AVX2 kernel makes it fifteen times faster than the plain loop. I wanted to know where that speed comes from, whether I need the intrinsics at all, and how much of it survives outside a benchmark. Four answers surprised me:</p>
 <ul>
-<li>Splitting one chain of additions into four mattered about as much as making the registers wider.</li>
-<li>Portable SIMD code, through the EVE library or <code class="nw">std::simd</code>, matched my intrinsics within 3%. GCC 16's new C++26 <code class="nw">&lt;simd&gt;</code> header matches them too, but only on x86 for now.</li>
+<li>Splitting one chain of additions into four was worth nearly as much as making the registers wider.</li>
+<li>Once the loop has that shape, portable code matches the intrinsics. EVE and <code class="nw">&lt;experimental/simd&gt;</code> came within 3% on x86, and so does GCC 16's new C++26 <code class="nw">&lt;simd&gt;</code>, though only on x86 for now.</li>
 <li>GCC refuses to fuse a multiply and an add in one particular loop, on purpose. On my laptop it was right: forcing the fused instruction made that loop 19% slower.</li>
+<li>The kernel that is fifteen times faster in cache made a whole search 1.5% faster on one log, and nothing measurable on another.</li>
 </ul>
 <h2 id="one-long-chain">One long chain</h2>
 <p>The plain version is the loop everyone writes:</p>
@@ -73,31 +73,43 @@ img.fig{display:block;width:100%;height:auto;margin:1.5em 0}
 for (size_t i = 0; i &lt; a.size(); ++i)
     sum += a[i] * b[i];
 </code></pre>
-<p>It takes 196.5 ns. GCC vectorizes the multiplications, four at a time, and then adds the four products to <code class="nw">sum</code> one by one (<a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/r3-x86-release-score.s">release listing</a>).</p>
-<p>It can't do better, because float addition isn't associative: <code>(a + b) + c</code> and <code>a + (b + c)</code> can round differently. Without <code class="nw">-ffast-math</code> the compiler must keep the additions in source order, so all 384 of them form a single chain, each waiting for the one before. Clang 19 doesn't do better either; it kept the whole loop scalar.</p>
-<p>Asking politely doesn't help. <code>std::transform_reduce(std::execution::unseq, ...)</code> is allowed to regroup the sum, but libstdc++ passes that permission to GCC as an OpenMP pragma, which GCC ignores unless you build with <code class="nw">-fopenmp-simd</code>.</p>
-<h2 id="four-chains-eight-lanes">Four chains, eight lanes</h2>
-<p>nesso 0.3.0 ships a hand-written AVX2 kernel next to the plain loop, picked at startup when the CPU supports AVX2 and FMA. It keeps four 8-wide accumulators and uses fused multiply-add:</p>
-<pre><code>sum0 = _mm256_fmadd_ps(_mm256_loadu_ps(a + i),      _mm256_loadu_ps(b + i),      sum0);
-sum1 = _mm256_fmadd_ps(_mm256_loadu_ps(a + i + 8),  _mm256_loadu_ps(b + i + 8),  sum1);
-sum2 = _mm256_fmadd_ps(_mm256_loadu_ps(a + i + 16), _mm256_loadu_ps(b + i + 16), sum2);
-sum3 = _mm256_fmadd_ps(_mm256_loadu_ps(a + i + 24), _mm256_loadu_ps(b + i + 24), sum3);
+<p>It takes 196.5 ns. In the released binary GCC 15 inlines it into the scoring function, vectorizes the multiplications four at a time, and then adds the four products to the running sum one by one:</p>
+<pre><code>movups (%r14,%rax,1),%xmm1
+movups 0x0(%r13,%rax,1),%xmm5
+add    $0x10,%rax
+mulps  %xmm5,%xmm1            # four products at once
+...
+addss  %xmm0,%xmm2            # then four additions, each waiting
+addss  %xmm3,%xmm2            # for the one before it
+addss  %xmm2,%xmm0
+addss  %xmm1,%xmm0
+cmp    %rdx,%rax
+jne    25dd40
 </code></pre>
-<p>It takes 13.0 ns, 15.1 times faster. Eight lanes alone can't explain fifteen times; the rest comes from running four independent chains instead of one. <a href="https://uops.info">uops.info</a> measures <code class="nw">vfmadd231ps</code> on Zen 5 at 4 cycles of latency through the accumulator, with two starting per cycle, so on paper it would take eight chains to keep the unit busy. I haven't tried eight.</p>
-<p>Adding in four groups changes the rounding, so the result differs from the plain loop in the last bits. That's fine only if it never changes a ranking. I'll come back to that.</p>
+<p class="caption">Inner loop of the official nesso 0.3.0 x86 binary, shuffles trimmed (<a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/r3-x86-release-score.s">full listing</a>).</p>
+
+<p>It can't do better, because float addition isn't associative: <code>(a + b) + c</code> and <code>a + (b + c)</code> can round differently. Without <code class="nw">-ffast-math</code>, or more precisely <code class="nw">-fassociative-math</code>, the compiler must keep the additions in source order. The products are independent, but all 384 additions form a single chain, each waiting for the one before. At about half a nanosecond per element, the timing fits that picture. In an earlier test, Clang 19 didn't do better: with the same flags it kept the whole loop scalar.</p>
+<p>Asking for vectorization doesn't lift the rule. <code>std::transform_reduce(std::execution::unseq, ...)</code> is allowed to regroup the sum, but libstdc++ passes that permission to GCC as an OpenMP <code>simd reduction</code> pragma, which GCC ignores unless the code is built with <code class="nw">-fopenmp</code> or <code class="nw">-fopenmp-simd</code>. A hand-written <code>#pragma omp simd reduction(+:sum)</code> behaves the same way, and a plain <code>#pragma omp simd</code> without the reduction clause keeps the additions in order even with OpenMP enabled.</p>
+<h2 id="four-chains-eight-lanes">Four chains, eight lanes</h2>
+<p>Since 0.3.0, nesso ships a hand-written AVX2 kernel next to the plain loop. It keeps four 8-wide accumulators and uses fused multiply-add:</p>
+<pre><code>for (; i + 32 &lt;= a.size(); i += 32) {
+    sum0 = _mm256_fmadd_ps(_mm256_loadu_ps(a + i),      _mm256_loadu_ps(b + i),      sum0);
+    sum1 = _mm256_fmadd_ps(_mm256_loadu_ps(a + i + 8),  _mm256_loadu_ps(b + i + 8),  sum1);
+    sum2 = _mm256_fmadd_ps(_mm256_loadu_ps(a + i + 16), _mm256_loadu_ps(b + i + 16), sum2);
+    sum3 = _mm256_fmadd_ps(_mm256_loadu_ps(a + i + 24), _mm256_loadu_ps(b + i + 24), sum3);
+}
+</code></pre>
+<p>The released binary keeps that shape exactly, four <code class="nw">vfmadd231ps</code> into four <code class="nw">ymm</code> registers per iteration (<a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/r3-x86-release-dot-avx2.s">listing</a>). A 384-float vector takes 12 iterations with no scalar tail. The kernel lives in its own translation unit compiled with <code class="nw">target("avx2,fma")</code>, so the rest of the binary stays on the <code class="nw">x86-64-v2</code> baseline, and the CPU is checked once at startup before this path is chosen.</p>
+<p>It takes 13.0 ns, 15.1 times faster than the plain loop. Eight lanes alone can't explain fifteen times; the rest comes from running four independent chains instead of one. <a href="https://uops.info">uops.info</a> measures <code class="nw">vfmadd231ps</code> on Zen 5 at 4 cycles of latency through the accumulator, with two able to start per cycle, so on paper it would take eight chains to keep both units busy. I haven't measured an eight-accumulator version.</p>
+<p>Adding in four groups changes the rounding, so the result differs from the plain loop in the last bits. That's acceptable only if it never changes a ranking. I'll come back to that.</p>
 <h2 id="the-memory-wall">The memory wall</h2>
-<p>Fifteen times is the number with both vectors sitting in L1 cache. A search doesn't work like that. It compares the query with every vector in the index, and those come from memory.</p>
-<p>So I also timed one pass over 30,960 distinct vectors, about 47.6 MB, far more than the chip's caches hold. That's how many distinct vectors nesso keeps for the first 100,000 lines of BGL, a supercomputer log from the public Loghub collection.</p>
+<p>Every number so far has both vectors sitting in L1 cache. A search doesn't work like that. It compares the query with every vector in the index, and those come from memory.</p>
+<p>So I also timed one pass over 30,960 distinct vectors, about 47.6 MB, far more than the chip's caches hold. That's how many distinct vectors nesso keeps for the first 100,000 lines of BGL, a supercomputer log from the public Loghub collection, once it masks the parts of each line that change, such as IDs and numbers.</p>
 <p><img src="fig-x86-cache-vs-stream.svg" class="fig" alt="Bar chart: nanoseconds per vector in cache and streamed from memory. Scalar loop 196.5 and 200.1, hand-written AVX2 13.0 and 29.4, EVE AVX2 12.9 and 29.5, four-accumulator native_simd AVX2 12.7 and 29.6, one-accumulator native_simd AVX2 17.7 and 31.1, EVE SSE 23.4 and 32.3, one-accumulator native_simd SSE 39.5 and 44.4."></p>
-<p>The plain loop barely notices: 200.1 ns per vector instead of 196.5. The AVX2 kernel goes from 13.0 to 29.4 ns, and the speedup drops from 15.1x to 6.8x. At that point it's reading about 52 GB/s and mostly waiting for memory. Every AVX2 version I tried lands within 2 ns of it.</p>
-<p>Past this wall a faster loop doesn't help. Fewer bytes do: fp16 or bf16 vectors would halve the 1,536 bytes per comparison, int8 would quarter them.</p>
-<h2 id="five-microseconds">Five microseconds</h2>
-<p>On BGL, one pass over those vectors takes 6.2 ms with the plain loop and 0.9 ms with AVX2. That's the most the kernel could save per query on that log. I haven't timed a full BGL search.</p>
-<p>I did time one on HDFS, another Loghub log. nesso masks the parts of each line that change, such as IDs and numbers, and keeps one vector per distinct result. HDFS is repetitive enough that its first million lines collapse to 34 distinct vectors. With the official 0.3.0 binary, one thread and ten timed runs per kernel, nesso's own trace put the distance stage at 9 µs with the plain loop and 3.5 µs with AVX2.</p>
-<p>The whole search took a median of 0.964 s with the plain loop and 0.915 s with AVX2. That 50 ms gap is ten thousand times what the kernel saved, so it's noise: the two runs that make up the plain loop's median took 0.915 s and 1.014 s.</p>
-<p>The kernel is fifteen times faster, and on this log it makes no difference you can measure. Deduplication had already removed the work.</p>
+<p>The plain loop barely notices: 200.1 ns per vector instead of 196.5. The AVX2 kernel goes from 13.0 to 29.4 ns, and the speedup drops from 15.1x to 6.8x. At 29.4 ns per 1,536-byte vector it reads about 52 GB/s, and it spends much of its time waiting for memory. Every AVX2 version in the chart, including the portable ones in the next section, lands within 2 ns of it.</p>
+<p>Past this wall a faster loop doesn't help. Fewer bytes do: fp16 or bf16 vectors would halve the bytes per comparison and int8 would quarter them, and scoring several queries in one pass would share the reads.</p>
 <h2 id="you-dont-need-the-intrinsics">You don't need the intrinsics</h2>
-<p>Intrinsics tie a kernel to one instruction set, and nesso's arm64 build still ships only the plain loop. So I wrote the same dot product with two portable libraries, <a href="https://github.com/jfalcou/eve">EVE</a> and <code class="nw">&lt;experimental/simd&gt;</code>, and built each for the release baseline (<code class="nw">-march=x86-64-v2</code>, 128-bit SSE) and with <code>-mavx2 -mfma</code>.</p>
+<p>Intrinsics tie a kernel to one instruction set, and nesso's arm64 build still ships only the plain loop. So I wrote the same dot product with two portable libraries and built each twice, for the release baseline (<code class="nw">-march=x86-64-v2</code>, 128-bit SSE) and with <code>-mavx2 -mfma</code>. <a href="https://github.com/jfalcou/eve">EVE</a> (v2023.02.15) was used through <code class="nw">eve::algo::transform_reduce</code> with <code class="nw">eve::fma</code>. C++26 <code class="nw">&lt;simd&gt;</code> isn't in GCC 15, so the second library is <code>std::experimental::native_simd&lt;float&gt;</code> from <code class="nw">&lt;experimental/simd&gt;</code>, written first as the simplest loop: one accumulator and one reduction at the end.</p>
 <div class="table"><table>
 <thead>
 <tr>
@@ -158,114 +170,191 @@ sum3 = _mm256_fmadd_ps(_mm256_loadu_ps(a + i + 24), _mm256_loadu_ps(b + i + 24),
 </tr>
 </tbody>
 </table></div>
-<p>EVE's AVX2 build matched my kernel. Its inner loop shows why: four accumulators and <code class="nw">vfmadd231ps</code>, the same plan I wrote by hand (<a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/r3-x86-eve-avx2.s">listing</a>). A four-accumulator <code class="nw">native_simd</code> compiles to the same four instructions (<a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/r3-x86-stdsimd4acc-avx2.s">listing</a>). The library doesn't matter; the shape of the loop does.</p>
-<p>The SSE rows show it most clearly. One chain over four lanes is 5.0x faster than the plain loop, about what four lanes should give. EVE, with four chains over the same four lanes, is 8.4x. The extra chains are worth 1.7x on their own.</p>
+<p>EVE's AVX2 build matched my kernel, 12.9 against 13.0 ns. Its inner loop shows why: it keeps four accumulators and uses <code class="nw">vfmadd231ps</code>, the same plan I wrote by hand.</p>
+<pre><code>vmovaps     0x80(%r10),%ymm7
+sub         $0xffffffffffffff80,%r10
+vfmadd231ps (%rcx),%ymm7,%ymm0
+sub         $0xffffffffffffff80,%rcx
+vmovaps     0x20(%r10),%ymm7
+vfmadd231ps -0x60(%rcx),%ymm7,%ymm5
+vmovaps     0x40(%r10),%ymm7
+vfmadd231ps -0x40(%rcx),%ymm7,%ymm3
+vmovaps     0x60(%r10),%ymm7
+vfmadd231ps -0x20(%rcx),%ymm7,%ymm6
+cmp         %rdx,%r10
+jne         140
+</code></pre>
+<p class="caption">EVE, AVX2 build, full inner loop (<a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/r3-x86-eve-avx2.s">listing</a>).</p>
+
+<p>To separate the library from the loop shape, I also wrote a <code class="nw">native_simd</code> version with four accumulators and an explicit <code class="nw">std::experimental::fma</code>. In the AVX2 build it compiles to the same four <code class="nw">vfmadd231ps</code> into four <code class="nw">ymm</code> registers (<a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/r3-x86-stdsimd4acc-avx2.s">listing</a>), and at 12.7 ns it was as fast as both. The library doesn't matter much; the shape of the loop does. C++26's <code class="nw">&lt;simd&gt;</code> (P1928) standardizes the vector types and their reductions within a register, but has nothing like EVE's <code class="nw">transform_reduce</code> over a range, so choosing the number of accumulators stays your job. The proposal to combine it with the parallel algorithms, P0350, isn't part of C++26.</p>
+<p>The same table lets me compare the two ways of going faster. One chain over four SSE lanes is 5.0x faster than the plain loop, about what four lanes should give. Widening from SSE to AVX2 gained 1.8x with four chains (EVE, 8.4x to 15.2x) and 2.2x with one (<code class="nw">native_simd</code>, 39.5 to 17.7 ns). Going from one chain to four gained 1.4x at AVX2 width (<code class="nw">native_simd</code>, 17.7 to 12.7 ns), and 1.7x at SSE width, though that one compares EVE with <code class="nw">native_simd</code>, two libraries. So splitting the chain is worth a bit less than doubling the width, not a different order of magnitude. That's where the first finding comes from.</p>
 <p>The last row is a trap. <code class="nw">x86-64-v2</code> has no FMA instructions, and <code class="nw">fma</code> promises a single rounding, so the compiler can't split it into a multiply and an add. It calls a library routine for every lane, and the "fast" kernel ends up more than twice as slow as the plain loop. An explicit <code class="nw">fma</code> only pays off where the hardware has it.</p>
-<p>(The squared L2 distance, nesso's other kernel, has the same shape and behaved the same: 197.8 ns plain, 12.9 ns AVX2.)</p>
+<p>Every kernel passed the same correctness check against the plain loop: 1,000 random vector pairs, limit 1e-3. The squared L2 distance, nesso's other kernel, has the same shape and behaved the same, 197.8 ns plain and 12.9 ns with AVX2, so I follow the dot product only.</p>
 <h2 id="the-compiler-knew-better">The compiler knew better</h2>
 <p>One row bothered me. The one-accumulator <code class="nw">native_simd</code> was 36% slower than my kernel, which makes sense for a single chain. But GCC also didn't fuse it:</p>
 <pre><code>vmulps -0x20(%rdi,%rax,4),%ymm0,%ymm0
 add    $0x8,%rax
-vaddps %ymm0,%ymm1,%ymm1
+vaddps %ymm0,%ymm1,%ymm1      # one accumulator: each add waits for the last
 </code></pre>
-<p>The flags weren't the reason: GCC contracts by default, the same source became a fused <code class="nw">fmla</code> on ARM, and the four-accumulator version fused fine.</p>
-<p>The reason is a deliberate tuning choice. GCC's x86 tuning avoids putting a fused multiply-add on a loop-carried chain: <code class="nw">--param=avoid-fma-max-bits</code> defaults to 256, and both the generic tuning and <code class="nw">-mtune=znver5</code> keep the multiply and the add apart. The multiply then runs ahead, and only the add sits on the chain. Set the parameter to 0, or tune for <code class="nw">-mtune=intel</code>, and the same code becomes <code class="nw">vfmadd231ps</code> (listings: <a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/gcc16-cxx26-avx2.s">split</a>, <a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/gcc16-cxx26-avx2-fused.s">fused</a>). GCC 15.2 and 16.2 behave the same.</p>
-<p>So I forced it. The fused loop took 20.7 ns against 17.3 ns, 19% slower.</p>
-<p>On Zen 5, uops.info puts <code class="nw">vaddps</code> at 2 cycles of latency and <code class="nw">vfmadd231ps</code> at 4 through the accumulator. Fusing doubles the cost of every step on the chain. The measured gap is smaller than that, probably because successive calls in the benchmark overlap in the out-of-order core, but the direction is clear. FMA isn't automatically faster. On one chain, the compiler's split was the better code for this chip.</p>
+<p class="caption"><code class="nw">native_simd</code>, one accumulator, AVX2 build (<a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/r3-x86-stdsimd-avx2.s">listing</a>).</p>
+
+<p>The flags weren't the reason. The build is ISO C++26, where GCC defaults to <code class="nw">-ffp-contract=fast</code>. The same source became a fused <code class="nw">fmla</code> on ARM (<a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/r3-arm-stdsimd-baseline.s">listing</a>), and the four-accumulator version fused on x86. On Compiler Explorer, adding <code class="nw">-std=gnu++26</code> or an explicit <code class="nw">-ffp-contract=fast</code> left the loop unfused, while the scalar tail of the same function was fused into <code class="nw">vfmadd231ss</code>, which the tuning parameter below doesn't explain by itself; I didn't chase that.</p>
+<p>The cause is a deliberate tuning choice. GCC's x86 tuning avoids creating chains of fused multiply-adds through a loop-carried accumulator: <code class="nw">--param=avoid-fma-max-bits</code> defaults to 256, and both the generic tuning and <code class="nw">-mtune=znver5</code> keep the multiply and the add apart. The multiply then runs ahead, and only the add sits on the chain. Set the parameter to 0, or tune with <code class="nw">-mtune=intel</code> or <code class="nw">-mtune=skylake</code>, and the same code becomes <code class="nw">vfmadd231ps</code> (listings: <a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/gcc16-cxx26-avx2.s">split</a>, <a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/gcc16-cxx26-avx2-fused.s">fused</a>). GCC 15.2 does the same with the parameter and with <code class="nw">-mtune=intel</code>.</p>
+<p>So I forced it. The fused one-accumulator loop took 20.7 ns against 17.3 ns for the split one, 19% slower.</p>
+<p>uops.info explains the direction. On Zen 5, <code class="nw">vaddps</code> on <code class="nw">ymm</code> registers has 2 cycles of latency and <code class="nw">vfmadd231ps</code> has 4 through the accumulator, so fusing doubles the latency of every step on the chain. The measured gap is smaller than a factor of two, and the clock shows why. At the roughly 4.9 GHz this core runs at, the split loop takes about 85 cycles per call and the fused one about 100, both below the 96 and 192 cycles a single chain of 48 steps would need on its own. Successive calls in the benchmark are independent, so they overlap in the out-of-order core, and the latency shows through only partly. FMA isn't automatically faster. On one chain, the compiler's split was the better code for this chip, and with four chains, where the latency is spread out, GCC does fuse.</p>
 <h2 id="c26-simd-first-look">C++26 <code class="nw">&lt;simd&gt;</code>, first look</h2>
-<p>GCC 16.2 ships the C++26 <code class="nw">&lt;simd&gt;</code> header, so I rebuilt everything with it, in an Ubuntu 26.10 container on the same laptop, next to GCC 15.2 in a 26.04 container. Each ran twice.</p>
+<p>GCC 16.2 ships the C++26 <code class="nw">&lt;simd&gt;</code> header, so I rebuilt the x86 kernels with it, in an Ubuntu 26.10 container on the same laptop, next to GCC 15.2 in a 26.04 container, with the same flags and no Conan. Each compiler ran the benchmark twice; the table gives the range of the two medians, in cache.</p>
 <div class="table"><table>
 <thead>
 <tr>
-<th>GCC 16.2, in cache</th>
-<th>ns</th>
+<th>Kernel, in cache (ns)</th>
+<th>GCC 15.2</th>
+<th>GCC 16.2</th>
 </tr>
 </thead>
 <tbody>
 <tr>
+<td>Plain loop</td>
+<td>196.0–196.3</td>
+<td>196.2–198.0</td>
+</tr>
+<tr>
 <td>Hand-written AVX2 + FMA</td>
+<td>13.0–13.7</td>
 <td>12.7–14.0</td>
 </tr>
 <tr>
+<td>EVE, AVX2</td>
+<td>12.0–12.9</td>
+<td>12.9</td>
+</tr>
+<tr>
+<td><code class="nw">native_simd</code>, 4 accumulators + <code class="nw">fma</code>, AVX2</td>
+<td>12.2–13.7</td>
+<td>12.6–12.7</td>
+</tr>
+<tr>
 <td><code class="nw">&lt;simd&gt;</code>, 4 accumulators, AVX2</td>
+<td>n/a</td>
 <td>12.6–12.7</td>
 </tr>
 <tr>
 <td><code class="nw">&lt;simd&gt;</code>, 1 accumulator, AVX2</td>
+<td>n/a</td>
 <td>17.1–17.5</td>
 </tr>
 <tr>
 <td><code class="nw">&lt;simd&gt;</code>, 1 accumulator, AVX2, FMA forced</td>
+<td>n/a</td>
 <td>20.5–20.8</td>
 </tr>
 <tr>
 <td><code class="nw">&lt;simd&gt;</code>, 4 accumulators, SSE</td>
+<td>n/a</td>
 <td>21.2–21.3</td>
 </tr>
 <tr>
 <td>EVE, SSE</td>
+<td>23.0–23.3</td>
 <td>22.7–23.0</td>
 </tr>
 </tbody>
 </table></div>
-<p>The four-accumulator <code class="nw">&lt;simd&gt;</code> kernel compiles to the same four <code class="nw">vfmadd231ps</code> as mine and runs as fast. The fastest kernels moved by up to 13% between runs, so read the ranges, not the digits.</p>
-<p>This first release has limits, though, all in libstdc++ 16 rather than the standard:</p>
+<p>Most results repeated within 2% between runs, but the fastest kernels, at 12 to 14 ns, moved by up to 13%, so read the ranges rather than the digits. The four-accumulator <code class="nw">&lt;simd&gt;</code> kernel compiles to the same four <code class="nw">vfmadd231ps</code> as mine and runs as fast.</p>
+<p>The compiler upgrade itself changed nothing: averaged over the two runs, every kernel built with both versions stayed within 4% in cache and 7% streamed, inside the run-to-run spread (the streamed times are in the published raw data).</p>
+<p>This first release of the header has limits, all in libstdc++ 16 rather than in the standard:</p>
 <ul>
 <li>It's x86 only. The header is enabled behind <code class="nw">__SSE2__</code> and stays off on aarch64.</li>
-<li>It doesn't set <code class="nw">__cpp_lib_simd</code>, the standard feature-test macro.</li>
-<li>Clang 23 can't compile it with libstdc++ 16, because the header needs expansion statements.</li>
-<li>There's no <code class="nw">std::simd::fma</code> yet, so I wrote <code>acc += a * b</code> and let the compiler fuse. That also avoids the library-call trap on SSE.</li>
+<li>It doesn't set <code class="nw">__cpp_lib_simd</code>, the standard feature-test macro, only libstdc++'s own <code class="nw">__glibcxx_simd</code>.</li>
+<li>Clang 23 leaves it disabled with libstdc++ 16: the header requires expansion statements (<code class="nw">__cpp_expansion_statements</code>), which Clang 23 doesn't advertise.</li>
+<li>There's no <code class="nw">std::simd::fma</code> yet, so I wrote <code>acc += a * b</code> and let the compiler fuse. Written that way, the SSE build becomes <code class="nw">mulps</code> and <code class="nw">addps</code>, and at 21.3 ns it is a little faster than EVE's. That isn't the new header beating the old one: the 421.8 ns row above comes from the explicit <code class="nw">fma</code>, and the one-accumulator <code class="nw">native_simd</code>, written with <code class="nw">*</code> and <code class="nw">+=</code>, never had the problem.</li>
 </ul>
-<p>The compiler upgrade itself changed nothing. Every kernel built with both GCC 15.2 and 16.2 stayed within 4% in cache and 7% streamed, inside the run-to-run spread.</p>
 <h2 id="the-same-picture-on-arm">The same picture on ARM</h2>
-<p>I ran the portable kernels and a hand-written NEON kernel, four accumulators with <code class="nw">vfmaq_f32</code>, on a GitHub-hosted arm64 runner (Neoverse-N2). Shared runners are noisy, so only the ratios within that one run mean anything.</p>
+<p>I ran the portable kernels on a GitHub-hosted arm64 runner (Neoverse-N2, 4 vCPUs) with <code>-O3 -march=armv8-a</code>, next to a hand-written NEON kernel with four <code class="nw">float32x4_t</code> accumulators and <code class="nw">vfmaq_f32</code> (<a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/r3-arm-neon4acc.s">listing</a>). Shared runners are noisy and their hardware varies, so only the ratios within that one run mean anything, and none of it compares with the laptop.</p>
+<p>The plain loop in the official arm64 binary has the same single chain as on x86: one vector multiply, then four additions into one scalar accumulator (<a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/arm-release-dot-scalar.s">listing</a>). The portable kernels compile unchanged. EVE and the four-accumulator <code class="nw">native_simd</code> both put four <code class="nw">fmla</code> into four accumulators (<a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/r3-arm-eve-baseline.s">EVE</a>, <a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/asm/r3-arm-stdsimd4acc-baseline.s">native_simd</a>).</p>
 <div class="table"><table>
 <thead>
 <tr>
-<th>ARM, speedup over the plain loop</th>
+<th>ARM, one run on a shared runner</th>
 <th>In cache</th>
-<th>Streamed</th>
+<th>Streamed, per vector</th>
+<th>Speedup over the plain loop</th>
 </tr>
 </thead>
 <tbody>
 <tr>
+<td>Plain loop</td>
+<td>210.2 ns</td>
+<td>221.3 ns</td>
+<td></td>
+</tr>
+<tr>
 <td>Hand-written NEON, 4 accumulators</td>
-<td>7.1x</td>
-<td>5.6x</td>
+<td>29.5 ns</td>
+<td>39.7 ns</td>
+<td>7.1x / 5.6x</td>
 </tr>
 <tr>
 <td><code class="nw">native_simd</code>, 4 accumulators + <code class="nw">fma</code></td>
-<td>6.9x</td>
-<td>5.3x</td>
+<td>30.7 ns</td>
+<td>41.4 ns</td>
+<td>6.9x / 5.3x</td>
 </tr>
 <tr>
 <td>EVE</td>
-<td>6.5x</td>
-<td>5.1x</td>
+<td>32.4 ns</td>
+<td>43.2 ns</td>
+<td>6.5x / 5.1x</td>
 </tr>
 <tr>
 <td><code class="nw">native_simd</code>, 1 accumulator</td>
-<td>4.3x</td>
-<td>4.0x</td>
+<td>49.0 ns</td>
+<td>55.2 ns</td>
+<td>4.3x / 4.0x</td>
 </tr>
 </tbody>
 </table></div>
-<p>Same pattern at half the width. The portable versions trail the hand-written one by 4% and 10% here; on one run of a shared machine I wouldn't read much into that. The real gap is the one the release still has: arm64 runs the plain loop, and on arm64 a kernel would still pay five to seven times.</p>
+<p>Same pattern at half the width. Here the portable versions trail the hand-written one by 4% and 10%; with one run on a shared machine I wouldn't read much into that, or into the absolute nanoseconds, which belong to whichever machine the runner happened to be. And on ARM, too, the plain loop leaves five to seven times on the table.</p>
+<h2 id="and-in-a-whole-search">And in a whole search?</h2>
+<p>In the benchmark, the AVX2 kernel scans BGL's 30,960 vectors in 0.9 ms instead of 6.2; inside nesso's search that stage takes 1.6 ms instead of 6.7. To see what that's worth to a user, I timed whole searches with the official 0.3.0 binary: ten runs per kernel after three warm-ups, one thread, on BGL's first 100,000 lines and on HDFS, a far more repetitive Loghub log whose first million lines collapse to 34 distinct vectors.</p>
+<div class="table"><table>
+<thead>
+<tr>
+<th>Whole search, median</th>
+<th>Distance stage, plain / AVX2</th>
+<th>Search, plain / AVX2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BGL, 100k lines, 30,960 vectors</td>
+<td>6.7 / 1.6 ms</td>
+<td>370.6 / 365.0 ms</td>
+</tr>
+<tr>
+<td>HDFS, 1M lines, 34 vectors</td>
+<td>0.009 / 0.003 ms</td>
+<td>928.9 / 922.5 ms</td>
+</tr>
+</tbody>
+</table></div>
+<p>On BGL the faster kernel made the search 1.5% faster. On HDFS the difference is inside the noise: individual runs ranged from 897 to 984 ms. Nearly all the rest of each search is reading the index and loading the model, which the kernel doesn't touch. The output was byte-identical with either kernel.</p>
+<p>This is Amdahl's law: speeding up one part of a task can save at most the share of time that part takes. On BGL it predicts the result almost exactly. With the plain loop the distance stage is 1.8% of the search; making that stage 4.2 times faster should bring 370.6 ms down to 365.5 ms, and I measured 365.0. Even an infinitely fast kernel could save at most that 1.8%.</p>
+<p>So the kernel is fifteen times faster where it runs, and a small fraction of a real query. That's worth knowing before spending more effort on it.</p>
 <h2 id="same-answers-either-way">Same answers either way</h2>
-<p>A faster kernel is only useful if it ranks lines the same way. I compared the JSON output of real searches with both kernels. On HDFS and BGL, the top 50 results came back in the same order. Raw scores differed by at most 2.7e-7, and CI fails if they ever differ by more than 1e-3.</p>
+<p>A faster kernel is only useful if it ranks lines the same way. Beyond the byte-identical output above, I compared the JSON output of searches with both kernels on an earlier build with the same kernels. On HDFS and BGL, the top 50 results came back in the same order, and raw similarity scores differed by at most 2.7e-7. CI fails if they ever differ by more than 1e-3.</p>
 <p>My first comparison reported a difference of exactly zero, which is suspicious for two kernels that add in a different order. It turned out the default search mixes in a keyword score, and that was hiding the noise. In dense-only mode the expected rounding differences appeared.</p>
 <p>That's why the plain loop stays in the binary. It's the reference every fast path is checked against.</p>
-<h2 id="spend-the-effort-on-bytes">Spend the effort on bytes</h2>
-<p>Here's what I'm taking from this, for nesso and in general.</p>
-<p><strong>Split the chain before you widen it.</strong> Four accumulators did about as much as AVX2's extra width. Any SIMD kernel without them is leaving half its speed on the table.</p>
-<p><strong>Measure where the data lives.</strong> Fifteen times in cache was under seven streamed, and nothing in five microseconds on a real log. Benchmark at all three levels before deciding a kernel matters.</p>
-<p><strong>Let the library write the loop.</strong> EVE and <code class="nw">std::simd</code> matched my intrinsics on x86. For nesso, the next kernel is the arm64 one, where the release still runs the plain loop; a four-accumulator NEON kernel is the smallest step, and C++26 <code class="nw">&lt;simd&gt;</code> the long-term one, once libstdc++ supports more than x86.</p>
-<p><strong>Then spend the effort on bytes.</strong> On x86 the float32 kernel has hit the memory wall. Smaller vectors, and the rest of that 0.9 s search, are where a user would notice.</p>
-<p>The kernel was the easy part. Knowing when it didn't matter took the measuring.</p>
+<h2 id="what-it-buys">What it buys</h2>
+<p><strong>Split the chain before you widen it.</strong> Four accumulators were worth 1.4x to 1.7x, against 1.8x to 2.2x for AVX2's extra width. A SIMD kernel with one accumulator leaves a large part of its speed on the table.</p>
+<p><strong>Let the library write the loop.</strong> EVE and <code class="nw">&lt;experimental/simd&gt;</code> matched my intrinsics on x86 once the loop had the same shape, and they compile for ARM unchanged. C++26 <code class="nw">&lt;simd&gt;</code> should become the obvious choice once libstdc++ supports more than x86 and provides <code class="nw">fma</code>. Until then, avoid an unconditional <code class="nw">fma</code> on targets without the instruction.</p>
+<p><strong>Check the compiler before you overrule it.</strong> GCC's refusal to fuse looked like a missed optimization. It was a tuning decision, and on this chip it was the faster code.</p>
+<p><strong>Measure at every level.</strong> Fifteen times in cache became under seven from memory and 1.5% of a real search, as Amdahl's law said it would.</p>
+<p>The kernel was the easy part. Knowing what it was worth took the rest of the measuring.</p>
 <h2 id="how-i-measured">How I measured</h2>
-<p>All x86 numbers come from one laptop, an AMD Ryzen AI 7 350 under WSL2, plugged in, single thread, pinned to logical CPU 2. I assume that's a Zen 5 core rather than a Zen 5c one; WSL hides core types and clock speeds, so I couldn't confirm it. The plain loop, timed at the start, middle and end of the main session, stayed within 0.5%.</p>
-<p>Kernels ran in Google Benchmark with 10 repetitions in random interleaved order, and I report medians. The main session used g++ 15.2.0 with <code>-O3 -march=x86-64-v2 -std=c++26</code> and no LTO, plus <code>-mavx2 -mfma</code> for the AVX2 builds, on nesso 0.3.0 plus the benchmark. Search timings and release assembly come from the official <code class="nw">nesso_0.3.0_amd64.deb</code>.</p>
-<p>The benchmark sources, container scripts for the GCC 15.2 and 16.2 builds, and every assembly listing are published <a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/tree/main/writing/simd-dot-product">next to this article</a>, with the exact commands in <a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/bench/README.md">bench/README.md</a>.</p>
+<p>All x86 numbers come from one laptop, an AMD Ryzen AI 7 350 under WSL2, plugged in, single thread, pinned to logical CPU 2. WSL doesn't expose clock speeds or core types, and its CPU numbers are virtual: Windows decides which physical core runs them. So afterwards I measured the clock directly, with a chain of dependent integer adds that take one cycle each. A single busy thread ran at 4.8 to 4.96 GHz on every one of the 16 virtual CPUs, a speed only the chip's Zen 5 cores reach, so the benchmarks ran on a Zen 5 core at about 4.9 GHz. The clock wasn't recorded during the sessions themselves; the stability check below is what shows it didn't drift. As a stability check, the plain loop was timed at the start, middle and end of the main session, and those medians stayed within 0.5% of each other.</p>
+<p>Kernels ran in Google Benchmark with 10 repetitions in random interleaved order, and I report medians. "In cache" is one pair of vectors timed over and over; "streamed" is one pass over the 30,960 vectors, divided by their number. The main session used g++ 15.2.0 with <code>-O3 -march=x86-64-v2 -std=c++26</code> and no LTO, plus <code>-mavx2 -mfma</code> for the AVX2 builds, on nesso 0.3.0 plus the benchmark. The GCC 16.2 comparison and the whole searches are later sessions on the same laptop and CPU. Whole searches and release assembly come from the official <code class="nw">nesso_0.3.0_amd64.deb</code>, run from the extracted package with its bundled model, with the queries <code>instruction cache parity error</code> on BGL and <code>Got exception while serving block</code> on HDFS in the default search mode.</p>
+<p>The benchmark sources, container scripts for the GCC 15.2 and 16.2 builds, the whole-search script with every raw run, and all assembly listings are published <a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/tree/main/writing/simd-dot-product">next to this article</a>, with the exact commands in <a href="https://github.com/lorenzocaprari/lorenzocaprari.github.io/blob/main/writing/simd-dot-product/bench/README.md">bench/README.md</a>. The listings from the main session are unedited <code class="nw">objdump</code> excerpts, with local build paths in their headers shortened; the <code class="nw">gcc16-*.s</code> files are the compiler's own <code class="nw">-S</code> output.</p>
 </article>
 <p class="back"><a href="../">All writing</a></p>
 <footer>© 2026 Lorenzo Caprari</footer>
