@@ -1,0 +1,306 @@
+name: exp simd arm
+
+on:
+  workflow_dispatch:
+  # GitHub only registers workflow_dispatch files that exist on the default
+  # branch. Push on this experiment branch is how the measure job starts.
+  push:
+    branches: [exp/simd-arm]
+
+env:
+  REGISTRY: ghcr.io
+  CONAN_HOME: /opt/conan2
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+    outputs:
+      image: ${{ steps.select.outputs.image }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve image reference
+        id: select
+        run: |
+          set -euo pipefail
+          owner_lc="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          reg="${{ env.REGISTRY }}/${owner_lc}/nesso-build-env"
+          deps_hash="$(./scripts/ci/build-env-hash arm64)"
+          echo "image=${reg}:deps-${deps_hash}-arm64" >> "${GITHUB_OUTPUT}"
+
+  measure:
+    needs: resolve
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: read
+      actions: write
+    defaults:
+      run:
+        shell: bash
+    container:
+      image: ${{ needs.resolve.outputs.image }} # zizmor: ignore[unpinned-images] deps-<hash> tag, not a digest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Record env and fetch release binary
+        run: |
+          set -euo pipefail
+          mkdir -p results/arm
+          {
+            echo "=== date ==="
+            date -Is
+            echo "=== uname -a ==="
+            uname -a
+            echo "=== lscpu ==="
+            lscpu
+            echo "=== g++-15 --version ==="
+            g++-15 --version
+          } | tee results/arm/env.txt
+          curl -fsSL -o results/arm/SHA256SUMS \
+            "https://github.com/lorenzocaprari/nesso/releases/download/v0.3.0/SHA256SUMS"
+          curl -fsSL -o results/arm/nesso_0.3.0_arm64.deb \
+            "https://github.com/lorenzocaprari/nesso/releases/download/v0.3.0/nesso_0.3.0_arm64.deb"
+          (
+            cd results/arm
+            grep 'nesso_0.3.0_arm64.deb$' SHA256SUMS | sha256sum -c -
+            sha256sum nesso_0.3.0_arm64.deb | tee deb-sha256.txt
+            dpkg-deb -x nesso_0.3.0_arm64.deb deb-root
+            ./deb-root/usr/bin/nesso --version | tee nesso-version.txt
+            readelf -p .comment ./deb-root/usr/bin/nesso | tee nesso-comment.txt
+            readelf -h ./deb-root/usr/bin/nesso | tee nesso-file.txt
+          )
+
+      - name: Build benches without LTO
+        run: |
+          set -euo pipefail
+          CXXFLAGS_JSON='["-O3","-march=armv8-a","-fvisibility=hidden","-DNDEBUG"]'
+          LINK_JSON='["-Wl,-O1","-Wl,--as-needed"]'
+          CONAN_NO_LTO_ARGS=(
+            -c "user.nesso:cxxflags=${CXXFLAGS_JSON}"
+            -c "user.nesso:cflags=${CXXFLAGS_JSON}"
+            -c "user.nesso:sharedlinkflags=${LINK_JSON}"
+            -c "user.nesso:exelinkflags=${LINK_JSON}"
+          )
+          # The arm64 image bakes deps for tests=True,bench=False. bench=True
+          # needs benchmark/1.9.1 from remotes; everything else should hit cache.
+          conan profile detect --force
+          conan remote list || true
+          conan install . -pr:h ./conan/profiles/gcc-26-armv8 -pr:b default \
+            --lockfile=conan.lock --build=missing \
+            -o "&:bench=True" -o "&:tests=False" \
+            "${CONAN_NO_LTO_ARGS[@]}"
+          conan build . -pr:h ./conan/profiles/gcc-26-armv8 -pr:b default \
+            --lockfile=conan.lock --build=missing \
+            -o "&:bench=True" -o "&:tests=False" \
+            "${CONAN_NO_LTO_ARGS[@]}"
+          ninja -C build/Release -t commands nesso_bench exp_simd_bench | tee results/arm/compile-commands.txt
+          grep -E -- '-O3' results/arm/compile-commands.txt
+          grep -E -- '-march=armv8-a' results/arm/compile-commands.txt
+          if grep -E -- '-flto' results/arm/compile-commands.txt; then
+            echo "unexpected -flto in compile commands" >&2
+            exit 1
+          fi
+          python3 - <<'PY' | tee results/arm/compile-flags.txt
+          import json
+          from pathlib import Path
+          data = json.loads(Path("build/Release/compile_commands.json").read_text())
+          want = ("exp_simd_portable.cpp", "exp_simd_bench.cpp")
+          for entry in data:
+              file = entry.get("file", "")
+              if not any(file.endswith(w) for w in want):
+                  continue
+              cmd = entry.get("command") or " ".join(entry.get("arguments", []))
+              stds = [t for t in cmd.split() if t.startswith("-std=")]
+              fpcs = [t for t in cmd.split() if t.startswith("-ffp-contract")]
+              print(f"{file}:")
+              print(f"  -std tokens: {stds}")
+              print(f"  -ffp-contract tokens: {fpcs if fpcs else '(none)'}")
+          PY
+
+      - name: Correctness and microbench
+        run: |
+          set -euo pipefail
+          ./build/Release/bench/exp_simd_bench --check | tee results/arm/a2-check.txt
+          ./build/Release/bench/exp_simd_bench \
+            --benchmark_filter='^(DotProduct384(StdSimd4AccBaseline|StdSimdBaseline|EveBaseline|Neon4Acc|Scalar)|StreamDot384(StdSimd4AccBaseline|StdSimdBaseline|EveBaseline|Neon4Acc|Scalar))$' \
+            --benchmark_repetitions=10 \
+            --benchmark_report_aggregates_only=true \
+            --benchmark_enable_random_interleaving=true \
+            --benchmark_out=results/arm/a2a3-exp_simd_bench.json \
+            --benchmark_out_format=json | tee results/arm/a2a3-exp_simd_bench.txt
+
+      - name: Dump inner loops
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re
+          import subprocess
+          from pathlib import Path
+
+          out = Path("results/arm")
+          bin_path = out / "deb-root/usr/bin/nesso"
+          obj_path = Path(
+              "build/Release/bench/CMakeFiles/exp_simd_portable_v2.dir/exp_simd_portable.cpp.o"
+          )
+          arith = ("fmla", "fmul", "fadd", "fadda", "fmadd")
+
+
+          def run(cmd: list[str]) -> str:
+              return subprocess.check_output(cmd, text=True)
+
+
+          def dump(path: Path) -> str:
+              return run(["objdump", "-d", "--no-show-raw-insn", "-C", str(path)])
+
+
+          def extract_symbol(disasm: str, needle: str) -> str | None:
+              lines = disasm.splitlines()
+              start = None
+              for i, line in enumerate(lines):
+                  if needle in line and "<" in line and line.rstrip().endswith(">:"):
+                      start = i
+                      break
+              if start is None:
+                  return None
+              body = [lines[start]]
+              for line in lines[start + 1 :]:
+                  if re.match(r"^[0-9a-f]+\s+<", line):
+                      break
+                  body.append(line)
+              return "\n".join(body) + "\n"
+
+
+          def dense_window(block: str) -> str:
+              lines = block.splitlines()
+              hits = [i for i, line in enumerate(lines) if any(op in line for op in arith)]
+              if not hits:
+                  return block
+              first, last = hits[0], hits[-1]
+              return "\n".join(lines[max(0, first - 4) : min(len(lines), last + 4)]) + "\n"
+
+
+          def write(name: str, header: str, body: str) -> None:
+              (out / name).write_text(header.rstrip() + "\n" + body)
+
+          nm = run(["nm", "-C", str(bin_path)])
+          has_scalar = any("DotProductScalar<float>" in line for line in nm.splitlines())
+          release = dump(bin_path)
+          if has_scalar:
+              block = extract_symbol(release, "DotProductScalar")
+              if block is None:
+                  raise SystemExit("DotProductScalar listed by nm but missing from objdump")
+              write(
+                  "release-dot-scalar.s",
+                  "# release arm64 binary, DotProductScalar<float> symbol",
+                  dense_window(block),
+              )
+          else:
+              # Same method as x86: LTO inlines the scalar loop into ScoreCorpusRows.
+              block = extract_symbol(release, "ScoreCorpusRows")
+              if block is None:
+                  raise SystemExit("ScoreCorpusRows not found in release binary")
+              write(
+                  "release-dot-scalar.s",
+                  "# release arm64 binary, no DotProductScalar symbol; inlined in ScoreCorpusRows",
+                  dense_window(block),
+              )
+
+          scalar_obj = Path(
+              "build/Release/src/core/CMakeFiles/nesso_core.dir/distance.cpp.o"
+          )
+          scalar_dis = dump(scalar_obj)
+          scalar_block = extract_symbol(scalar_dis, "DotProductScalar<float>")
+          if scalar_block is None:
+              raise SystemExit("DotProductScalar<float> not found")
+          write(
+              "product-dot-scalar.s",
+              "# local nesso_core distance.cpp DotProductScalar<float>",
+              dense_window(scalar_block),
+          )
+
+          portable = dump(obj_path)
+          eve_block = extract_symbol(portable, "DotEve(") or extract_symbol(portable, "DotEveBaseline")
+          if eve_block is None:
+              raise SystemExit("DotEve not found in portable object")
+          write(
+              "eve-baseline.s",
+              "# local exp_simd_portable_v2 DotEve, -O3 -march=armv8-a",
+              dense_window(eve_block),
+          )
+          std_block = extract_symbol(portable, "DotStdSimdBaseline") or extract_symbol(
+              portable, "DotStdSimd("
+          )
+          if std_block is None:
+              raise SystemExit("DotStdSimdBaseline not found in portable object")
+          write(
+              "stdsimd-baseline.s",
+              "# local exp_simd_portable_v2 DotStdSimdBaseline, <experimental/simd>",
+              dense_window(std_block),
+          )
+          std4_block = extract_symbol(portable, "DotStdSimd4Acc(") or extract_symbol(
+              portable, "DotStdSimd4AccBaseline"
+          )
+          if std4_block is None:
+              raise SystemExit("DotStdSimd4Acc not found in portable object")
+          write(
+              "stdsimd4acc-baseline.s",
+              "# local exp_simd_portable_v2 DotStdSimd4Acc, four accumulators + std::experimental::fma",
+              dense_window(std4_block),
+          )
+          neon_block = extract_symbol(portable, "DotNeon4AccImpl") or extract_symbol(
+              portable, "DotNeon4Acc"
+          )
+          if neon_block is None:
+              raise SystemExit("DotNeon4Acc not found in portable object")
+          write(
+              "neon4acc.s",
+              "# local exp_simd_portable_v2 DotNeon4Acc, float32x4_t x4 vfmaq_f32",
+              dense_window(neon_block),
+          )
+
+          notes = []
+          for path in (
+              "release-dot-scalar.s",
+              "product-dot-scalar.s",
+              "eve-baseline.s",
+              "stdsimd-baseline.s",
+              "stdsimd4acc-baseline.s",
+              "neon4acc.s",
+          ):
+              text = (out / path).read_text()
+              notes.append(f"=== {path} ===")
+              notes.append(f"fmla={text.count('fmla')}")
+              notes.append(f"fmul={text.count('fmul')}")
+              notes.append(f"fadd={text.count('fadd')}")
+              notes.append(f"v_token={len(re.findall(r'\\bv[0-9]+', text))}")
+              notes.append(f"q_token={len(re.findall(r'\\bq[0-9]+', text))}")
+              notes.append("")
+          (out / "asm-notes.txt").write_text("\n".join(notes))
+          print((out / "asm-notes.txt").read_text())
+          PY
+
+      - name: Upload results
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: simd-arm-results
+          path: results/arm/
+          if-no-files-found: error
+          retention-days: 14
