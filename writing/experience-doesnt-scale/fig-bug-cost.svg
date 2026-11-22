@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="600" height="400" role="img" aria-labelledby="t">
+<title id="t">The later a bug is found, the more it costs: developer's machine, CI, the field</title>
+<style>
+text{font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;fill:#101D30}
+.h{font-size:20px;font-weight:600}
+.l{font-size:18px;font-weight:600}
+.c{font-size:16px;fill:#5C6A78}
+.w{font-size:15px;fill:#FFFFFF}
+.ax{stroke:#5C6A78;stroke-width:1.5;fill:none}
+</style>
+<rect width="600" height="400" fill="#F4F2EE"/>
+<text class="h" x="20" y="34">The later a bug is found, the more it costs</text>
+<path class="ax" d="M40 300V68M34 78l6-12 6 12"/>
+<text class="c" transform="translate(28 300) rotate(-90)">cost of the bug</text>
+<path d="M40 300H575" stroke="#DDD8D0" stroke-width="2"/>
+<rect x="65" y="276" width="130" height="24" fill="#2BA597"/>
+<rect x="235" y="216" width="130" height="84" fill="#0D6E65"/>
+<rect x="405" y="72" width="170" height="228" fill="#101D30"/>
+<text class="w" x="490" y="104" text-anchor="middle">found weeks later</text>
+<text class="w" x="490" y="132" text-anchor="middle">only on that machine,</text>
+<text class="w" x="490" y="152" text-anchor="middle">with that data</text>
+<text class="w" x="490" y="180" text-anchor="middle">someone connects</text>
+<text class="w" x="490" y="200" text-anchor="middle">remotely, or travels</text>
+<text class="w" x="490" y="228" text-anchor="middle">the fix ships</text>
+<text class="w" x="490" y="248" text-anchor="middle">in a hurry</text>
+<text class="w" x="490" y="276" text-anchor="middle">and plants the next</text>
+<text class="w" x="490" y="292" text-anchor="middle">problem</text>
+<text class="l" x="130" y="328" text-anchor="middle">Developer's</text>
+<text class="l" x="130" y="348" text-anchor="middle">machine</text>
+<text class="c" x="130" y="372" text-anchor="middle">a test catches it</text>
+<text class="c" x="130" y="391" text-anchor="middle">in seconds</text>
+<text class="l" x="300" y="328" text-anchor="middle">CI</text>
+<text class="c" x="300" y="352" text-anchor="middle">a check on</text>
+<text class="c" x="300" y="371" text-anchor="middle">every change</text>
+<text class="l" x="490" y="328" text-anchor="middle">The field</text>
+<text class="c" x="490" y="352" text-anchor="middle">a customer's site,</text>
+<text class="c" x="490" y="371" text-anchor="middle">the most expensive place</text>
+</svg>

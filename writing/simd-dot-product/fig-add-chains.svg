@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 430" width="600" height="430" role="img" aria-labelledby="t">
+<title id="t">One chain of 384 additions versus four chains of eight lanes</title>
+<style>
+text{font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;fill:#101D30}
+.h{font-size:19px;font-weight:600}
+.c{font-size:16px;fill:#5C6A78}
+.m{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:15px}
+.p{font-size:18px;font-weight:600;fill:#FFFFFF}
+.a{stroke:#5C6A78;stroke-width:1.5;fill:none;marker-end:url(#h)}
+.b{stroke:#5C6A78;stroke-width:1.5;fill:none}
+.d{font-size:18px;fill:#5C6A78}
+</style>
+<defs>
+<marker id="h" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#5C6A78"/></marker>
+<g id="add"><rect width="26" height="26" rx="3" fill="#2BA597"/><text class="p" x="13" y="19" text-anchor="middle">+</text></g>
+<g id="ymm"><rect width="40" height="24" fill="#0D6E65"/><path d="M5 0v24M10 0v24M15 0v24M20 0v24M25 0v24M30 0v24M35 0v24" stroke="#F4F2EE" stroke-width="1"/></g>
+</defs>
+<rect width="600" height="430" fill="#F4F2EE"/>
+<text class="h" x="20" y="32">One long chain</text>
+<text class="c" x="20" y="54">One accumulator: every addition waits for the one before</text>
+<use href="#add" x="20" y="72"/><use href="#add" x="60" y="72"/><use href="#add" x="100" y="72"/><use href="#add" x="140" y="72"/><use href="#add" x="180" y="72"/><use href="#add" x="220" y="72"/><use href="#add" x="260" y="72"/><use href="#add" x="300" y="72"/>
+<path class="a" d="M46 85h12M86 85h12M126 85h12M166 85h12M206 85h12M246 85h12M286 85h12M326 85h18"/>
+<text class="d" x="350" y="91">…</text>
+<path class="a" d="M372 85h14M412 85h12M452 85h60"/>
+<use href="#add" x="386" y="72"/><use href="#add" x="426" y="72"/>
+<text class="m" x="518" y="90">sum</text>
+<path class="b" d="M20 108v8h213l20 8 20-8h179v-8"/>
+<text class="c" x="246" y="146" text-anchor="middle">384 additions in a single chain</text>
+<path d="M20 172H580" stroke="#DDD8D0" stroke-width="2"/>
+<text class="h" x="20" y="204">Four chains, eight lanes</text>
+<text class="c" x="20" y="226">Four 8-wide accumulators: 32 independent partial sums</text>
+<g id="row">
+<use href="#ymm" x="70" y="245"/><use href="#ymm" x="124" y="245"/><use href="#ymm" x="178" y="245"/><use href="#ymm" x="232" y="245"/>
+<path class="a" d="M110 257h12M164 257h12M218 257h12M272 257h14"/>
+<text class="d" x="292" y="263">…</text>
+<path class="a" d="M314 257h14"/>
+<use href="#ymm" x="330" y="245"/>
+</g>
+<text class="m" x="20" y="262">sum0</text>
+<use href="#row" y="36"/><use href="#row" y="72"/><use href="#row" y="108"/>
+<text class="m" x="20" y="298">sum1</text>
+<text class="m" x="20" y="334">sum2</text>
+<text class="m" x="20" y="370">sum3</text>
+<path class="a" d="M370 257C410 257 420 300 438 306M370 293C405 293 420 306 438 309M370 329C405 329 420 316 438 313M370 365C410 365 420 322 438 316"/>
+<rect x="440" y="292" width="32" height="32" rx="3" fill="#101D30"/><text class="p" x="456" y="314" text-anchor="middle">+</text>
+<path class="a" d="M472 308h40"/>
+<text class="m" x="518" y="313">sum</text>
+<text class="c" x="474" y="352">add the four</text>
+<text class="c" x="474" y="371">together</text>
+<path class="b" d="M70 382v8h135l15 8 15-8h135v-8"/>
+<text class="c" x="220" y="418" text-anchor="middle">12 iterations, one fused multiply-add per chain</text>
+</svg>

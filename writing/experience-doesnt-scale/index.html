@@ -38,6 +38,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 code{background:var(--code);padding:2px 6px;border-radius:3px;font-size:.88em;font-family:"IBM Plex Mono",ui-monospace,"JetBrains Mono",monospace}
 pre{background:var(--code);border:1px solid var(--line);border-radius:6px;padding:16px 18px;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;margin:1.25em 0;tab-size:4}
 pre code{background:none;padding:0;border-radius:0;font-size:.82rem;line-height:1.5;font-family:"IBM Plex Mono",ui-monospace,"JetBrains Mono",monospace}
+img.fig{display:block;width:100%;height:auto;margin:1.5em 0}
 .back{margin:48px 0 0}
 footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 @media (max-width:600px){
@@ -84,6 +85,7 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 
 <p>Skipping tests, CI and profiling doesn't remove that work. It moves it to the most expensive place there is: the field.</p>
 
+<p><img src="fig-bug-cost.svg" class="fig" alt="Diagram: the later a bug is found, the more it costs. Three bars rise from left to right with no scale. Developer's machine, a short bar: a test catches it in seconds. CI, a taller bar: a check on every change. The field, by far the tallest bar: a customer's site, the most expensive place, where the bug is found weeks later, only on that machine with that data, someone connects remotely or travels, and the fix ships in a hurry and plants the next problem."></p>
 
 <p>A bug that a test would have caught in seconds shows up on a customer's site weeks later. Someone connects remotely, or travels, to reproduce a failure that only happens on that machine, with that data, under that load. A slowdown nobody profiled becomes "it feels sluggish since the last update", and no one can say which change caused it. The fix ships in a hurry, without checks, and plants the next problem.</p>
 
