@@ -47,6 +47,7 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
   pre{padding:14px 14px}
   pre code{font-size:.78rem}
 }
+img.fig{display:block;width:100%;height:auto;margin:1.5em 0}
 </style>
 </head>
 <body>
@@ -83,6 +84,7 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 <p>I've seen this pattern more than once. The product mostly does its job, everything keeps changing, proofs of concept turn into features, and the direction shifts every few months. In that mode, "good enough" really is good enough to keep going. For a while. Then the shortcuts you took to move fast are the same ones that slow everything down, and the frustrating part is knowing it could have been avoided.</p>
 
 <p>Skipping tests, CI and profiling doesn't remove that work. It moves it to the most expensive place there is: the field.</p>
+<p><img src="fig-bug-cost.svg" class="fig" alt="Diagram: the same bug costs more the later it is found. On your machine a test fails and you fix it; in CI the pull request goes red; in the field it means a customer, a trip and firefighting. The bars rise from a small cost to a large one."></p>
 
 
 <p>A bug that a test would have caught in seconds shows up on a customer's site weeks later. Someone connects remotely, or travels, to reproduce a failure that only happens on that machine, with that data, under that load. A slowdown nobody profiled becomes "it feels sluggish since the last update", and no one can say which change caused it. The fix ships in a hurry, without checks, and plants the next problem.</p>
@@ -92,6 +94,7 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 <h2>CI is guardrails, not a gate</h2>
 
 <p>People often describe CI as a gate, something that stops you. Guardrails is a better picture.</p>
+<p><img src="fig-gate-vs-guardrails.svg" class="fig" alt="Diagram. Top: a gate, one check at the end of the road; with nothing holding the edges, the path drifts and bounces off both sides before reaching the release check. Bottom: guardrails along the whole road, with checks for build, static analysis, sanitizers, fuzzing, tests and benchmarks, and a straight path to ship."></p>
 
 <p>Guardrails on a mountain road don't slow you down. They're why you can drive at a decent speed without staring at the edge. You stop worrying about falling off and think about where you're going.</p>
 
