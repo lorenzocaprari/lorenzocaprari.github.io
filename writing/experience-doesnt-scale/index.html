@@ -106,7 +106,7 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 
 <p>The usual plan is to write the feature now and add the tests "when things calm down". Things never calm down.</p>
 
-<p>So the code ships in a strange state. I call this Schrödinger code: until something actually checks it, it's both working and broken. It might do exactly what you meant. It might also fail now and then, on some input, under some load or with some timing nobody tried. You don't know which, and neither does anyone else. The box only gets opened in production, usually at the worst possible moment. (It isn't the "schrödinbug" of hacker slang, a bug that only appears once someone reads the code; this is code nobody has checked at all.)</p>
+<p>So the code ships in a strange state. I call this Schrödinger code: until something actually checks it, it's both working and broken. It might do exactly what you meant. It might also fail now and then, on some input, under some load or with some timing nobody tried. You don't know which, and neither does anyone else. The box only gets opened in production, usually at the worst possible moment.</p>
 
 <p>Writing code isn't the same as knowing it works. Tests can't prove there are no bugs, as Dijkstra pointed out long ago. What they do is narrow the space where bugs can hide, and keep it narrow. That evidence isn't only for today's reviewer. It's for you in six months, when you've forgotten every detail and need to change this code safely, and for the colleague who inherits it. Without it, they aren't changing your code, they're guessing.</p>
 
