@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SIMD made my kernel 15× faster and my search 1.5% faster — Lorenzo Caprari</title>
+<title>What SIMD buys a 384-float dot product — Lorenzo Caprari</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="description" content="Where a fifteen-times faster dot product comes from, whether EVE, std::simd and GCC 16&#x27;s C++26 &lt;simd&gt; can replace the intrinsics, why GCC won&#x27;t fuse one loop, and what it all buys a whole search.">
-<meta property="og:title" content="SIMD made my kernel 15× faster and my search 1.5% faster">
+<meta property="og:title" content="What SIMD buys a 384-float dot product">
 <meta property="og:description" content="Where a fifteen-times faster dot product comes from, whether EVE, std::simd and GCC 16&#x27;s C++26 &lt;simd&gt; can replace the intrinsics, why GCC won&#x27;t fuse one loop, and what it all buys a whole search.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://lorenzocaprari.github.io/writing/simd-dot-product/">
@@ -64,7 +64,7 @@ img.fig{display:block;width:100%;height:auto;margin:1.5em 0}
 <main>
 <p class="home"><a href="../../">Lorenzo Caprari</a></p>
 <article>
-<h1>SIMD made my kernel 15× faster and my search 1.5% faster</h1>
+<h1>What SIMD buys a 384-float dot product</h1>
 <p class="meta">Lorenzo Caprari · 21 November 2026</p>
 <p>nesso, the log search tool I work on, turns every log line into a vector of 384 floats and ranks lines by how close their vectors are to the query's. Underneath that ranking sits one small function: the dot product of two arrays of 384 floats.</p>
 <p>A hand-written AVX2 kernel makes it fifteen times faster than the plain loop. I wanted to know where that speed comes from, whether I need the <a href="https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html">intrinsics</a> at all, and how much of it survives outside a benchmark. Four answers surprised me:</p>

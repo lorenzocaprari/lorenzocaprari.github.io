@@ -1,4 +1,4 @@
-# Benchmark sources for "SIMD made my kernel 15× faster and my search 1.5% faster"
+# Benchmark sources for "What SIMD buys a 384-float dot product"
 
 Apache-2.0, like nesso. The benchmark builds against the distance kernels of
 [nesso v0.3.0](https://github.com/lorenzocaprari/nesso/tree/v0.3.0) and adds the
