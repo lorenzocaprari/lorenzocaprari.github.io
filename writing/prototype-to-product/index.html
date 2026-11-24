@@ -61,7 +61,7 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 
 <p>The demo works. The vehicle drives the loop, the robot finds the shelf, the tool finds the log line. Everyone in the room saw it, and someone is already asking when it ships.</p>
 
-<p>A prototype answers one question: can this work? A product has to answer different ones. Does it keep working on hardware you don't own, with inputs you never imagined, in the hands of people you'll never meet, after the next hundred changes? Most of the code is the same. What it's held to is not.</p>
+<p>A prototype answers one question: can this work? A product has to answer different ones. Does it keep working on hardware you don't own, with inputs you never imagined, in the hands of people you'll never meet, after the next hundred changes? Can you prove it's safe, keep it secure, and explain any release years later? Most of the code is the same. What it's held to is not.</p>
 
 <p>The gap is rarely closed by a rewrite. It's closed by a sequence of steps, and the order matters more than any single step, because each one makes the next one safe. Do them out of order and paying off technical debt quietly produces new debt.</p>
 
@@ -71,15 +71,25 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 
 <p>The same page should say which parts are meant to survive and which are scaffolding. Teams lose months polishing code that was always going to be thrown away, and months more trusting code that was never meant to last.</p>
 
-<h2>2. Make the build boring</h2>
+<h2>2. Know what can hurt</h2>
 
-<p>Nothing else is trustworthy until two machines build the same thing from the same commit. Prototypes are usually built on one laptop, with whatever compiler, libraries and flags happened to be installed. That's fine for a demo and fatal for a product: you can't reproduce a field bug if you can't rebuild the binary that shipped.</p>
+<p>Before deciding how good the code must be, find out what happens when it fails. A prototype is judged on whether it works; a product is also judged on what it does when it doesn't. Two short analyses answer that, and both belong this early because they change everything after them.</p>
 
-<p>A boring build means a pinned toolchain, dependencies resolved from a lockfile through a package manager such as Conan or vcpkg, the configurations written down as CMake presets rather than remembered, and the whole thing runnable in a container. If the product targets more than one platform, cross-compilation belongs here too, not later. Adding a second target after the code has grown around one is far more painful than starting with two.</p>
+<p>The first is about safety: what can this system do to people or property, how likely is it, and which functions keep it from happening? Those safety functions get the strictest requirements, reviews and tests; the rest of the code doesn't need the same rigour. The second is about security: who might attack the system, through which interfaces, and what would they gain? A threat model done now decides whether you need secure boot, signed updates or authenticated messages, which are cheap to design in and very expensive to add later.</p>
+
+<p>The same exercise tells you which rules apply, and in system software they're no longer optional extras. For road vehicles, UN R155 and R156 require a cybersecurity management system and a software update management system, with ISO/SAE 21434 and ISO 24089 as the engineering standards behind them, alongside ISO 26262 for functional safety. For automated guided vehicles and mobile robots in factories, <a href="https://www.iso.org/standard/83545.html">ISO 3691-4</a> sets the safety requirements and how to verify them, and from 20 January 2027 machinery sold in the EU must meet the new <a href="https://eur-lex.europa.eu/eli/reg/2023/1230/oj">Machinery Regulation</a>, which says cyber threats must not compromise safety functions. For most other connected products sold in the EU, the <a href="https://digital-strategy.ec.europa.eu/en/factpages/cyber-resilience-act-implementation">Cyber Resilience Act</a> has required reporting of actively exploited vulnerabilities since September 2026 and applies in full from December 2027. You don't need to be an expert in all of them. You need to know, early, which ones are yours.</p>
+
+<h2>3. Make it reproducible</h2>
+
+<p>Nothing else is trustworthy until the same commit gives the same result everywhere. Prototypes are usually built on one laptop, with whatever compiler, libraries and flags happened to be installed, and tested by whoever was around. That's fine for a demo and fatal for a product: you can't fix a field bug you can't reproduce, and you can't reproduce it without the exact binary and inputs that produced it.</p>
+
+<p>Reproducibility has three layers. The build: a pinned toolchain, dependencies resolved from a lockfile through a package manager such as Conan or vcpkg, configurations written down as CMake presets rather than remembered, and the whole thing runnable in a container. If the product targets more than one platform, cross-compilation belongs here too, not later. The tests: fixed random seeds, no dependence on wall-clock time or network, and recorded input data kept under version control next to the code that reads it. And the results: every test run and benchmark tied to the commit, toolchain and machine that produced it, so a number from last spring can still be explained.</p>
+
+<p>The goal is a single question with a yes answer: given the version string from a device in the field, can we rebuild that exact binary and rerun the tests it shipped with?</p>
 
 <p class="todo"><strong>Your story here:</strong> modernising the build system of an autonomous-driving stack: what the build looked like before, what it took to cross-compile for Linux and QNX on x86 and ARM, and what changed for the team afterwards.</p>
 
-<h2>3. Pin today's behaviour before changing it</h2>
+<h2>4. Pin today's behaviour before changing it</h2>
 
 <p>The instinct is to start cleaning up. Don't, yet. First capture what the system does now, right or wrong, so you'll know when a change alters it.</p>
 
@@ -87,59 +97,71 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 
 <p class="todo"><strong>Your story here:</strong> a refactor or cleanup where replayed real-world data caught a behaviour change before it reached a vehicle or a customer.</p>
 
-<h2>4. Let CI hold the edges</h2>
+<h2>5. Let CI hold the edges</h2>
 
-<p>With a reproducible build and a safety net, CI can do its job: run the checks on every change so nobody has to remember them. I've written about why that matters <a href="../experience-doesnt-scale/">in a separate article</a>; here the practical point is tiers. Fast checks run on every pull request and should finish in minutes: build, unit and characterisation tests, static analysis, sanitizers. Slow checks run on a schedule: long fuzzing campaigns, full benchmark suites, soak tests and, where there's hardware, hardware-in-the-loop runs.</p>
+<p>With a reproducible build and a safety net, CI can do its job: run the checks on every change so nobody has to remember them. I've written about why that matters <a href="../experience-doesnt-scale/">in a separate article</a>; here the practical point is tiers. Fast checks run on every pull request and should finish in minutes: build, unit and characterisation tests, static analysis, sanitizers, and a scan of dependencies for known vulnerabilities. Slow checks run on a schedule: long fuzzing campaigns, full benchmark suites, soak tests and, where there's hardware, hardware-in-the-loop runs.</p>
 
 <p>The split keeps the feedback loop short enough that people wait for it instead of working around it. For nesso, a small project, the per-pull-request run covers static analysis, sanitizers, fuzzing, behaviour tests and benchmarks in ten to fifteen minutes.</p>
 
-<h2>5. Pay debt where it costs</h2>
+<h2>6. Pay debt where it costs</h2>
 
-<p>Technical debt is easy to find and hard to prioritise, because almost everything in a prototype qualifies. Ugliness is a bad guide. A messy module nobody touches costs almost nothing; a slightly messy one that changes every week costs a lot.</p>
+<p>Technical debt is easy to find and hard to prioritise, because almost everything in a prototype qualifies. Ugliness is a bad guide. A messy module nobody touches costs almost nothing; a slightly messy one that changes every week costs a lot. Risk is the other guide: debt inside a safety function or on an exposed interface comes first, whatever it looks like.</p>
 
 <p>Version control already knows where the cost is. Files that change most often and are most complex are where bugs and slowdowns concentrate:</p>
 
 <pre><code>git log --since="1 year ago" --format= --name-only -- src/ \
   | sort | uniq -c | sort -rn | head -20</code></pre>
 
-<p>Cross that list with a complexity measure, from a tool such as lizard or simply function length, and the top of both lists is where cleanup pays first. Keep the rest in a written debt register, with a sentence on what each item costs, so it's a decision rather than a guilty feeling.</p>
+<p>Cross that list with a complexity measure, from a tool such as lizard or simply function length, and with the risk map from step 2. The top of all three is where cleanup pays first. Keep the rest in a written debt register, with a sentence on what each item costs, so it's a decision rather than a guilty feeling.</p>
 
-<h2>6. Draw the boundaries</h2>
+<h2>7. Draw the boundaries</h2>
 
 <p>Prototypes grow by copying: the same parsing, the same conversion, the same error handling, written slightly differently in each place that needed it. Products need one implementation per concern, behind an interface that says what it promises.</p>
 
-<p>The payoff goes beyond tidiness. When a concern lives in one place, a fix lands once, a test covers every user, and the build stops recompiling the same logic many times over. The usual candidates in system software are message and signal encoding, configuration, error reporting, time and logging.</p>
+<p>The payoff goes beyond tidiness. When a concern lives in one place, a fix lands once, a test covers every user, and the build stops recompiling the same logic many times over. Boundaries also contain risk: keeping safety functions and code that parses untrusted input small and separate means the strictest rules and reviews apply to less code. The usual candidates in system software are message and signal encoding, configuration, error reporting, time and logging.</p>
 
 <p class="todo"><strong>Your story here:</strong> unifying CAN signal encoding and decoding behind one implementation across a mixed fleet: what was duplicated before, and what got simpler afterwards.</p>
 
-<h2>7. Ratchet, don't mandate</h2>
+<h2>8. Ratchet, don't mandate</h2>
 
 <p>Turning on every warning and a strict coding standard across a prototype's codebase produces thousands of findings on day one. Teams respond by ignoring them or by switching them off again. Neither raises quality.</p>
 
-<p>A ratchet works better: the bar applies to new and changed code, and the count of old findings may only go down. Warnings become errors per module as each one gets clean. Static analysis starts from a recorded baseline, and CI fails only on new findings. A standard such as MISRA C++ or the CERT rules applies to files as they're touched. Quality rises with every change, and nobody has to stop the product to get there.</p>
+<p>A ratchet works better: the bar applies to new and changed code, and the count of old findings may only go down. Warnings become errors per module as each one gets clean. Static analysis starts from a recorded baseline, and CI fails only on new findings. A standard such as MISRA C++ or the CERT rules applies to files as they're touched, starting with the safety-related and exposed parts. Quality rises with every change, and nobody has to stop the product to get there.</p>
 
 <pre><code>target_compile_options(core PRIVATE
     $&lt;$&lt;CXX_COMPILER_ID:GNU,Clang&gt;:-Wall -Wextra -Wpedantic -Werror&gt;)</code></pre>
 
-<h2>8. Make it operable</h2>
+<h2>9. Trace requirements to tests and releases</h2>
+
+<p>Sooner or later someone asks a question the code can't answer by itself. Why does it do this? Which test proves that requirement? What changed between the version that passed the audit and the one in the field? Which releases contain the library with last week's vulnerability? Without traceability, each answer is an archaeology project. With it, they're a query.</p>
+
+<p>Traceability doesn't need a heavy tool to start. Give each requirement an ID, reference that ID from the tests that verify it and from the commits that implement or change it, and keep each release's test results and software bill of materials together with its tag. Requirements can live as text in the repository, with tools such as Doorstop or sphinx-needs, or in an application lifecycle tool if the organisation already has one. For safety-related functions, regulated domains expect this link from hazard to requirement to test to release. For everything else it's still the fastest way to answer "what will this change break?"</p>
+
+<h2>10. Make it operable</h2>
 
 <p>A demo is watched by the people who wrote it. A product runs alone, and when it misbehaves, the only witness is whatever it recorded. Before anything leaves the lab, it should be able to say which version it is, log what it was doing in a form someone else can read, report its own health, and leave something useful behind when it crashes, such as a core dump or a minidump with symbols kept for that exact build.</p>
 
-<p>For anything deployed on devices, the update path belongs here too. A product that can't be updated safely, and rolled back when an update goes wrong, turns every bug into a site visit.</p>
+<p>For anything deployed on devices, the update path belongs here too. A product that can't be updated safely, with signed updates and a way to roll back when one goes wrong, turns every bug into a site visit and every vulnerability into a crisis.</p>
 
-<h2>9. Set budgets, not opinions</h2>
+<h2>11. Set budgets, not opinions</h2>
 
 <p>"Fast enough" is an opinion until it's a number. Give the critical paths explicit budgets for latency, memory and CPU on the target hardware, measure them in CI, and fail the build when a change breaks one. Budgets also settle arguments early: whether an optimisation is worth its complexity becomes a question with an answer.</p>
 
 <p>The same goes for platform assumptions. nesso's release build targets a conservative x86-64 baseline and checks the CPU once at startup before choosing its AVX2 kernel, so it runs everywhere and is fast where it can be. That decision is cheap to make deliberately and expensive to discover in a support ticket.</p>
 
-<h2>10. Release on purpose</h2>
+<h2>12. Release on purpose</h2>
 
-<p>A release should be an event a script performs, not a ritual a person remembers. That means versioned builds produced by CI from a tagged commit, a changelog someone outside the team can read, signed artifacts, a software bill of materials listing what's inside, and a short checklist for the steps that still need a human. Each release should be reproducible later from its tag, which is only possible because of step 2.</p>
+<p>A release should be an event a script performs, not a ritual a person remembers. That means versioned builds produced by CI from a tagged commit, a changelog someone outside the team can read, signed artifacts, a software bill of materials listing what's inside, and a short checklist for the steps that still need a human. The bill of materials isn't paperwork: checked against vulnerability databases after release, it's how you find out that a product in the field needs an update. Each release should be reproducible later from its tag, which is only possible because of step 3.</p>
 
-<h2>11. Get ready to be evaluated</h2>
+<h2>13. Keep it maintainable</h2>
 
-<p>Market evaluation is a test the team doesn't control. Pilot users will use the product in ways nobody planned, and the question is whether you learn from it fast. Agree beforehand what a successful trial looks like, make sure field problems come back with enough data to reproduce them, keep documentation good enough that a new user can start without you in the room, and decide who answers when something breaks. Where the domain requires it, such as functional safety for vehicles or machinery, find out early which standards apply. Certification is far cheaper to design for than to retrofit.</p>
+<p>A product outlives the people who built it, and usually the team's memory of why. Maintenance is what keeps the next engineer as effective as the first.</p>
+
+<p>Every part of the code needs an owner, written down, for example in a <code class="nw">CODEOWNERS</code> file, so reviews and questions have somewhere to go. Decisions that shaped the design get a short record, a page saying what was decided, why, and what was rejected, so nobody has to rediscover the reasons. Dependencies are updated a little and often, with a bot such as Renovate or Dependabot proposing changes that CI then checks, instead of in a frightening jump every few years. Interfaces that others rely on change through a deprecation period, not overnight. And one test is worth running every few months: can someone new clone the repository, build it, run the tests and make a small change in their first day? If not, the gap is maintenance debt, and it grows quietly.</p>
+
+<h2>14. Get ready to be evaluated</h2>
+
+<p>Market evaluation is a test the team doesn't control. Pilot users will use the product in ways nobody planned, and the question is whether you learn from it fast. Agree beforehand what a successful trial looks like, make sure field problems come back with enough data to reproduce them, keep documentation good enough that a new user can start without you in the room, and decide who answers when something breaks, including how outside researchers can report a security problem and who decides whether it must be reported further. Where certification applies, the evidence from steps 2, 9 and 12 is most of what an assessor will ask for.</p>
 
 <p class="todo"><strong>Your story here:</strong> a field trial or customer evaluation: what the lab never showed, and how quickly the team could reproduce and fix it.</p>
 
@@ -149,11 +171,13 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem}
 
 <p>Polishing what might be thrown away. Step 1 exists so effort goes into the parts that will survive.</p>
 
+<p>Treating safety and security as a final audit. Both are design decisions. Found at the end, they mean rework; found at step 2, they mean a few interfaces drawn differently.</p>
+
 <p>Process before a safety net. Reviews, standards and checklists are worth having, but without a reproducible build and tests behind them, they mostly add friction.</p>
 
 <h2>The order is the method</h2>
 
-<p>None of these steps is new on its own. What makes them work is the sequence: a reproducible build makes tests trustworthy, tests make refactoring safe, CI makes the checks automatic, and only then do standards, budgets and releases stop being paperwork. A prototype proves it can work. Each of these steps is part of proving that it keeps working.</p>
+<p>None of these steps is new on its own. What makes them work is the sequence: knowing the risks tells you where to be strict, reproducibility makes tests trustworthy, tests make refactoring safe, CI makes the checks automatic, and only then do standards, traceability, budgets and releases stop being paperwork and start being evidence. A prototype proves it can work. Each of these steps is part of proving that it keeps working.</p>
 </article>
 <p class="back"><a href="../">All writing</a></p>
 <footer>© 2026 Lorenzo Caprari</footer>
